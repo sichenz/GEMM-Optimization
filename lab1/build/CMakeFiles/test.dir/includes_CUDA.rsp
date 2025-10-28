@@ -1,0 +1,1 @@
+-I"/scratch/sz4972/barenet-lab1-sichenz" -I"/scratch/sz4972/barenet-lab1-sichenz/src" -I"/scratch/sz4972/barenet-lab1-sichenz/utils" -isystem "/usr/local/cuda/targets/x86_64-linux/include"

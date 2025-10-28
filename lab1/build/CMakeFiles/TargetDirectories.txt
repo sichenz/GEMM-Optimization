@@ -1,0 +1,3 @@
+/scratch/sz4972/barenet-lab1-sichenz/build/CMakeFiles/test.dir
+/scratch/sz4972/barenet-lab1-sichenz/build/CMakeFiles/edit_cache.dir
+/scratch/sz4972/barenet-lab1-sichenz/build/CMakeFiles/rebuild_cache.dir

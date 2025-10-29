@@ -6,9 +6,9 @@
 #include <cmath>
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
-#include "utils/tensor.cuh"
-#include "ops/op_mm.cuh"
-#include "ops/op_elemwise.cuh"
+#include "src/utils/tensor.cuh"
+#include "src/ops/op_mm.cuh"
+#include "src/ops/op_elemwise.cuh"
 
 unsigned long long randgen_seed = 42;
 

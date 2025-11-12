@@ -1,0 +1,169 @@
+======================================
+Phase 1.1: Complete Baseline Analysis
+======================================
+
+Wed Nov 12 03:14:42 PM EST 2025
+======================================
+Step 1: Building project...
+======================================
+-- Configuring done (0.2s)
+-- Generating done (0.7s)
+-- Build files have been written to: /scratch/sz4972/GEMM-Optimization/build
+[100%] Built target gpu_specs
+[100%] Built target benchmark_gemm
+Build successful!
+
+======================================
+Step 2: Collecting GPU specifications...
+======================================
+GPU Specifications Report
+Generated: Oct 29 2025 16:40:42
+
+========================================
+Device 0: Quadro RTX 8000
+========================================
+
+=== Basic Information ===
+Compute Capability: 7.5
+Total Global Memory: 44.48 GB
+Memory Clock Rate: 6501.00 MHz
+Memory Bus Width: 384 bits
+
+=== Compute Resources ===
+Number of SMs: 72
+Max Threads per SM: 1024
+Max Threads per Block: 1024
+Max Block Dimensions: (1024, 1024, 64)
+Max Grid Dimensions: (2147483647, 65535, 65535)
+Warp Size: 32
+
+=== Memory Hierarchy ===
+L2 Cache Size: 6.00 MB
+Shared Memory per Block: 48.00 KB
+Shared Memory per SM: 64.00 KB
+Registers per Block: 65536
+Registers per SM: 65536
+Constant Memory: 64.00 KB
+
+=== Performance Characteristics ===
+Peak Memory Bandwidth: 624.1 GB/s
+Estimated FP32 Peak TFLOPS: -2.25 TFLOPS
+TensorCore FP16 Peak TFLOPS: 65.00 TFLOPS
+TensorCore Speedup vs FP32: -28.9x
+Clock Rate: 1620.0 MHz
+
+=== Feature Support ===
+Concurrent Kernels: Yes
+ECC Enabled: Yes
+Unified Addressing: Yes
+Managed Memory: Yes
+Cooperative Launch: Yes
+TensorCore Support: Yes (Compute 7.5)
+
+Results saved to results/gpu_specs.txt
+GPU specs complete!
+
+======================================
+Step 3: Running GEMM benchmarks...
+This will take 30-60 minutes...
+======================================
+GEMM Benchmark Suite
+====================
+
+GPU: Quadro RTX 8000
+Compute Capability: 7.5
+
+         Kernel   DType     M     N     K    Time(ms)      GFLOPSBandwidth(GB/s)
+--------------------------------------------------------------------------------
+
+Testing M=128, N=128, K=128
+     Lab1_Tiled    FP32   128   128   128       0.014      290.72          13.63
+   cuBLAS_SGEMM    FP32   128   128   128       0.008      514.11          24.10
+cuBLAS_HGEMM_TensorCore    FP16   128   128   128       0.007      584.36          13.70
+
+Testing M=256, N=256, K=256
+     Lab1_Tiled    FP32   256   256   256       0.028     1181.29          27.69
+   cuBLAS_SGEMM    FP32   256   256   256       0.012     2708.10          63.47
+cuBLAS_HGEMM_TensorCore    FP16   256   256   256       0.009     3679.86          43.12
+
+Testing M=512, N=512, K=512
+     Lab1_Tiled    FP32   512   512   512       0.196     1367.64          16.03
+   cuBLAS_SGEMM    FP32   512   512   512       0.042     6332.94          74.21
+cuBLAS_HGEMM_TensorCore    FP16   512   512   512       0.018    14902.48          87.32
+
+Testing M=1024, N=1024, K=1024
+     Lab1_Tiled    FP32  1024  1024  1024       1.460     1470.93           8.62
+   cuBLAS_SGEMM    FP32  1024  1024  1024       0.242     8885.82          52.07
+cuBLAS_HGEMM_TensorCore    FP16  1024  1024  1024       0.041    52887.43         154.94
+
+Testing M=2048, N=2048, K=2048
+     Lab1_Tiled    FP32  2048  2048  2048       9.779     1756.77           5.15
+   cuBLAS_SGEMM    FP32  2048  2048  2048       1.315    13066.02          38.28
+cuBLAS_HGEMM_TensorCore    FP16  2048  2048  2048       0.190    90501.15         132.57
+
+Testing M=4096, N=4096, K=4096
+     Lab1_Tiled    FP32  4096  4096  4096      70.459     1950.61           2.86
+   cuBLAS_SGEMM    FP32  4096  4096  4096      10.568    13005.14          19.05
+cuBLAS_HGEMM_TensorCore    FP16  4096  4096  4096       1.509    91088.76          66.72
+
+Testing M=8192, N=8192, K=8192
+     Lab1_Tiled    FP32  8192  8192  8192     564.009     1949.46           1.43
+   cuBLAS_SGEMM    FP32  8192  8192  8192      83.683    13139.01           9.62
+cuBLAS_HGEMM_TensorCore    FP16  8192  8192  8192      12.260    89680.51          32.84
+
+Testing M=4096, N=256, K=1024
+     Lab1_Tiled    FP32  4096   256  1024       1.280     1678.01          17.21
+   cuBLAS_SGEMM    FP32  4096   256  1024       0.185    11633.78         119.29
+cuBLAS_HGEMM_TensorCore    FP16  4096   256  1024       0.039    54491.38         279.37
+
+Testing M=1024, N=4096, K=512
+     Lab1_Tiled    FP32  1024  4096   512       2.299     1868.14          11.86
+   cuBLAS_SGEMM    FP32  1024  4096   512       0.351    12225.01          77.60
+cuBLAS_HGEMM_TensorCore    FP16  1024  4096   512       0.065    66347.53         210.58
+
+Testing M=2048, N=512, K=2048
+     Lab1_Tiled    FP32  2048   512  2048       2.298     1868.83          10.95
+   cuBLAS_SGEMM    FP32  2048   512  2048       0.353    12162.69          71.27
+cuBLAS_HGEMM_TensorCore    FP16  2048   512  2048       0.058    73701.46         215.92
+
+Testing M=512, N=2048, K=512
+     Lab1_Tiled    FP32   512  2048   512       0.565     1901.26          16.71
+   cuBLAS_SGEMM    FP32   512  2048   512       0.093    11497.54         101.05
+cuBLAS_HGEMM_TensorCore    FP16   512  2048   512       0.019    57055.66         250.73
+Results saved to results/benchmark_results.csv
+
+Benchmark completed!
+Benchmarks complete!
+
+======================================
+Step 4: Generating roofline analysis...
+======================================
+
+Loaded 33 benchmark results
+Kernels tested: Lab1_Tiled, cuBLAS_SGEMM, cuBLAS_HGEMM_TensorCore
+Matrix sizes: 11
+
+Generating analysis...
+Roofline plot saved to results/roofline_plot.png
+Performance comparison saved to results/performance_comparison.png
+Analysis report saved to results/analysis_report.txt
+
+Analysis complete!
+Generated files:
+  - results/roofline_plot.png
+  - results/performance_comparison.png
+  - results/analysis_report.txt
+Analysis complete!
+
+======================================
+Phase 1.1 Complete!
+======================================
+
+Results available in:
+  - results/gpu_specs.txt
+  - results/benchmark_results.csv
+  - results/roofline_plot.png
+  - results/performance_comparison.png
+  - results/analysis_report.txt
+
+All jobs completed! Check results/ directory for outputs.

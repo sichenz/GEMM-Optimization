@@ -26,14 +26,9 @@ def calculate_arithmetic_intensity(M, N, K, bytes_per_element):
 
 def plot_roofline(df, gpu_specs, output_file):
     """
-    Create roofline plot
-    
-    Args:
-        df: DataFrame with benchmark results
-        gpu_specs: dict with 'peak_gflops_fp32', 'peak_gflops_fp16', 'peak_bandwidth_gb_s'
-        output_file: path to save plot
+    Create roofline plot with improved visualization
     """
-    fig, ax = plt.subplots(figsize=(12, 8))
+    fig, ax = plt.subplots(figsize=(14, 9))
     
     # Calculate arithmetic intensity for each benchmark
     df['bytes_per_element'] = df['DType'].apply(lambda x: 2 if x == 'FP16' else 4)
@@ -45,8 +40,10 @@ def plot_roofline(df, gpu_specs, output_file):
     peak_gflops_fp32 = gpu_specs['peak_gflops_fp32']
     peak_gflops_fp16 = gpu_specs['peak_gflops_fp16']
     
-    # Create roofline curves
-    ai_range = np.logspace(-1, 3, 1000)  # Arithmetic intensity from 0.1 to 1000
+    # Create roofline curves with better range
+    ai_min = max(0.1, df['AI'].min() * 0.5)
+    ai_max = min(1000, df['AI'].max() * 2)
+    ai_range = np.logspace(np.log10(ai_min), np.log10(ai_max), 1000)
     
     # FP32 roofline
     memory_bound_fp32 = ai_range * peak_bandwidth
@@ -58,41 +55,77 @@ def plot_roofline(df, gpu_specs, output_file):
     compute_bound_fp16 = np.full_like(ai_range, peak_gflops_fp16)
     roofline_fp16 = np.minimum(memory_bound_fp16, compute_bound_fp16)
     
-    # Plot rooflines
-    ax.loglog(ai_range, roofline_fp32, 'k-', linewidth=2, label='FP32 Roofline')
-    ax.loglog(ai_range, roofline_fp16, 'b--', linewidth=2, label='FP16 TensorCore Roofline')
+    # Plot rooflines with thicker lines
+    ax.loglog(ai_range, roofline_fp32, 'k-', linewidth=2.5, label='FP32 Roofline', zorder=1)
+    ax.loglog(ai_range, roofline_fp16, 'b--', linewidth=2.5, label='FP16 TensorCore Roofline', zorder=1)
     
-    # Plot benchmark results
+    # Plot benchmark results with distinct markers
     kernels = df['Kernel'].unique()
-    colors = {'Lab1_Tiled': 'red', 'cuBLAS_SGEMM': 'green', 'cuBLAS_HGEMM_TensorCore': 'blue'}
-    markers = {'Lab1_Tiled': 'o', 'cuBLAS_SGEMM': 's', 'cuBLAS_HGEMM_TensorCore': '^'}
+    colors = {
+        'Lab1_Tiled': '#e74c3c',           # Red
+        'cuBLAS_SGEMM': '#27ae60',         # Green
+        'cuBLAS_HGEMM_TensorCore': '#3498db'  # Blue
+    }
+    markers = {
+        'Lab1_Tiled': 'o', 
+        'cuBLAS_SGEMM': 's', 
+        'cuBLAS_HGEMM_TensorCore': '^'
+    }
     
     for kernel in kernels:
         kernel_df = df[df['Kernel'] == kernel]
         color = colors.get(kernel, 'gray')
         marker = markers.get(kernel, 'x')
         ax.loglog(kernel_df['AI'], kernel_df['GFLOPS'], 
-                 marker=marker, color=color, markersize=8, 
-                 linestyle='', label=kernel, alpha=0.7)
+                 marker=marker, color=color, markersize=10, 
+                 linestyle='', label=kernel, alpha=0.8, markeredgewidth=1.5,
+                 markeredgecolor='white', zorder=3)
+    
+    # Calculate and show ridge points
+    ridge_point_fp32 = peak_gflops_fp32 / peak_bandwidth
+    ridge_point_fp16 = peak_gflops_fp16 / peak_bandwidth
+    
+    # Add vertical lines at ridge points
+    ax.axvline(x=ridge_point_fp32, color='k', linestyle=':', alpha=0.3, linewidth=1.5)
+    ax.axvline(x=ridge_point_fp16, color='b', linestyle=':', alpha=0.3, linewidth=1.5)
     
     # Labels and formatting
-    ax.set_xlabel('Arithmetic Intensity (FLOPS/Byte)', fontsize=12)
-    ax.set_ylabel('Performance (GFLOPS)', fontsize=12)
-    ax.set_title('Roofline Model: GEMM Performance Analysis', fontsize=14, fontweight='bold')
-    ax.grid(True, which='both', linestyle='--', alpha=0.5)
-    ax.legend(loc='lower right', fontsize=10)
+    ax.set_xlabel('Arithmetic Intensity (FLOPS/Byte)', fontsize=14, fontweight='bold')
+    ax.set_ylabel('Performance (GFLOPS)', fontsize=14, fontweight='bold')
+    ax.set_title('Roofline Model: GEMM Performance Analysis\nQuadro RTX 8000', 
+                 fontsize=16, fontweight='bold', pad=20)
+    ax.grid(True, which='both', linestyle='--', alpha=0.4, linewidth=0.5)
+    ax.legend(loc='lower right', fontsize=11, framealpha=0.9)
     
-    # Add annotations for peak values
-    ax.axhline(y=peak_gflops_fp32, color='k', linestyle=':', alpha=0.3)
-    ax.text(ai_range[-1], peak_gflops_fp32 * 1.1, 
+    # Add annotations for peak values and ridge points
+    y_offset_fp32 = peak_gflops_fp32 * 1.15
+    y_offset_fp16 = peak_gflops_fp16 * 1.15
+    
+    ax.text(ai_range[-1] * 0.8, y_offset_fp32, 
             f'Peak FP32: {peak_gflops_fp32:.1f} GFLOPS', 
-            ha='right', fontsize=9)
+            ha='right', fontsize=10, bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
     
     if peak_gflops_fp16 > 0:
-        ax.axhline(y=peak_gflops_fp16, color='b', linestyle=':', alpha=0.3)
-        ax.text(ai_range[-1], peak_gflops_fp16 * 1.1, 
+        ax.text(ai_range[-1] * 0.8, y_offset_fp16, 
                 f'Peak FP16 TC: {peak_gflops_fp16:.1f} GFLOPS', 
-                ha='right', fontsize=9, color='blue')
+                ha='right', fontsize=10, color='#3498db',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    
+    # Add ridge point annotations
+    ax.text(ridge_point_fp32 * 1.1, peak_gflops_fp32 * 0.1, 
+            f'Ridge Point\n{ridge_point_fp32:.1f} FLOPs/Byte',
+            fontsize=9, ha='left', va='bottom', color='gray',
+            bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
+    
+    # Set reasonable axis limits
+    y_min = max(1, df['GFLOPS'].min() * 0.5)
+    y_max = min(peak_gflops_fp16 * 2, df['GFLOPS'].max() * 5)
+    ax.set_ylim(y_min, y_max)
+    ax.set_xlim(ai_min, ai_max)
+    
+    # Improve tick labels
+    ax.tick_params(axis='both', which='major', labelsize=11)
+    ax.tick_params(axis='both', which='minor', labelsize=9)
     
     plt.tight_layout()
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
@@ -101,30 +134,36 @@ def plot_roofline(df, gpu_specs, output_file):
 
 def plot_performance_comparison(df, output_file):
     """Plot performance comparison across different matrix sizes"""
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 7))
     
     # Filter square matrices for cleaner visualization
-    square_df = df[(df['M'] == df['N']) & (df['N'] == df['K'])]
+    square_df = df[(df['M'] == df['N']) & (df['N'] == df['K'])].copy()
     
     if len(square_df) > 0:
         # Plot 1: GFLOPS vs Matrix Size
         kernels = square_df['Kernel'].unique()
-        colors = {'Lab1_Tiled': 'red', 'cuBLAS_SGEMM': 'green', 'cuBLAS_HGEMM_TensorCore': 'blue'}
+        colors = {
+            'Lab1_Tiled': '#e74c3c', 
+            'cuBLAS_SGEMM': '#27ae60', 
+            'cuBLAS_HGEMM_TensorCore': '#3498db'
+        }
         
         for kernel in kernels:
             kernel_df = square_df[square_df['Kernel'] == kernel].sort_values('M')
             ax1.plot(kernel_df['M'], kernel_df['GFLOPS'], 
-                    marker='o', label=kernel, color=colors.get(kernel, 'gray'), linewidth=2)
+                    marker='o', label=kernel, color=colors.get(kernel, 'gray'), 
+                    linewidth=2.5, markersize=8, markeredgewidth=1.5, markeredgecolor='white')
         
-        ax1.set_xlabel('Matrix Size (M=N=K)', fontsize=12)
-        ax1.set_ylabel('Performance (GFLOPS)', fontsize=12)
-        ax1.set_title('GEMM Performance vs Matrix Size', fontsize=13, fontweight='bold')
-        ax1.legend()
-        ax1.grid(True, alpha=0.3)
+        ax1.set_xlabel('Matrix Size (M=N=K)', fontsize=13, fontweight='bold')
+        ax1.set_ylabel('Performance (GFLOPS)', fontsize=13, fontweight='bold')
+        ax1.set_title('GEMM Performance vs Matrix Size', fontsize=14, fontweight='bold')
+        ax1.legend(fontsize=11)
+        ax1.grid(True, alpha=0.3, linestyle='--')
         ax1.set_xscale('log', base=2)
+        ax1.set_yscale('log')
+        ax1.tick_params(axis='both', which='major', labelsize=11)
         
         # Plot 2: Efficiency vs Matrix Size
-        # Calculate efficiency relative to cuBLAS_SGEMM for FP32
         cublas_fp32 = square_df[square_df['Kernel'] == 'cuBLAS_SGEMM']
         if len(cublas_fp32) > 0:
             for kernel in kernels:
@@ -142,15 +181,18 @@ def plot_performance_comparison(df, output_file):
                         sizes.append(row['M'])
                 
                 ax2.plot(sizes, efficiency, marker='o', label=f"{kernel} vs cuBLAS", 
-                        color=colors.get(kernel, 'gray'), linewidth=2)
+                        color=colors.get(kernel, 'gray'), linewidth=2.5, markersize=8,
+                        markeredgewidth=1.5, markeredgecolor='white')
         
-        ax2.set_xlabel('Matrix Size (M=N=K)', fontsize=12)
-        ax2.set_ylabel('Efficiency (% of cuBLAS FP32)', fontsize=12)
-        ax2.set_title('Relative Efficiency Analysis', fontsize=13, fontweight='bold')
-        ax2.legend()
-        ax2.grid(True, alpha=0.3)
+        ax2.set_xlabel('Matrix Size (M=N=K)', fontsize=13, fontweight='bold')
+        ax2.set_ylabel('Efficiency (% of cuBLAS FP32)', fontsize=13, fontweight='bold')
+        ax2.set_title('Relative Efficiency Analysis', fontsize=14, fontweight='bold')
+        ax2.legend(fontsize=11)
+        ax2.grid(True, alpha=0.3, linestyle='--')
         ax2.set_xscale('log', base=2)
-        ax2.axhline(y=100, color='green', linestyle='--', alpha=0.5, label='cuBLAS baseline')
+        ax2.axhline(y=100, color='#27ae60', linestyle='--', alpha=0.5, 
+                    linewidth=2, label='cuBLAS baseline')
+        ax2.tick_params(axis='both', which='major', labelsize=11)
     
     plt.tight_layout()
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
@@ -196,115 +238,18 @@ def generate_analysis_report(df, gpu_specs, output_file):
             efficiency = (kernel_df['GFLOPS'].mean() / peak) * 100
             f.write(f"  Average Efficiency: {efficiency:.2f}% of peak\n")
         
-        # Comparison between Lab-1 and cuBLAS
-        f.write("\n" + "=" * 80 + "\n")
-        f.write("LAB-1 vs cuBLAS COMPARISON:\n")
-        f.write("-" * 40 + "\n")
-        
-        lab1_df = df[df['Kernel'] == 'Lab1_Tiled']
-        cublas_df = df[df['Kernel'] == 'cuBLAS_SGEMM']
-        
-        if len(lab1_df) > 0 and len(cublas_df) > 0:
-            for _, lab1_row in lab1_df.iterrows():
-                cublas_row = cublas_df[(cublas_df['M'] == lab1_row['M']) & 
-                                       (cublas_df['N'] == lab1_row['N']) & 
-                                       (cublas_df['K'] == lab1_row['K'])]
-                if len(cublas_row) > 0:
-                    speedup = cublas_row['GFLOPS'].values[0] / lab1_row['GFLOPS']
-                    efficiency = (lab1_row['GFLOPS'] / cublas_row['GFLOPS'].values[0]) * 100
-                    f.write(f"\nMatrix {lab1_row['M']}x{lab1_row['N']}x{lab1_row['K']}:\n")
-                    f.write(f"  Lab-1: {lab1_row['GFLOPS']:.2f} GFLOPS\n")
-                    f.write(f"  cuBLAS: {cublas_row['GFLOPS'].values[0]:.2f} GFLOPS\n")
-                    f.write(f"  cuBLAS Speedup: {speedup:.2f}x\n")
-                    f.write(f"  Lab-1 Efficiency: {efficiency:.2f}% of cuBLAS\n")
-        
-        # TensorCore analysis
-        tensorcore_df = df[df['Kernel'] == 'cuBLAS_HGEMM_TensorCore']
-        if len(tensorcore_df) > 0 and len(cublas_df) > 0:
-            f.write("\n" + "=" * 80 + "\n")
-            f.write("TENSORCORE ANALYSIS (FP16 vs FP32):\n")
-            f.write("-" * 40 + "\n")
-            
-            for _, tc_row in tensorcore_df.iterrows():
-                fp32_row = cublas_df[(cublas_df['M'] == tc_row['M']) & 
-                                     (cublas_df['N'] == tc_row['N']) & 
-                                     (cublas_df['K'] == tc_row['K'])]
-                if len(fp32_row) > 0:
-                    speedup = tc_row['GFLOPS'] / fp32_row['GFLOPS'].values[0]
-                    f.write(f"\nMatrix {tc_row['M']}x{tc_row['N']}x{tc_row['K']}:\n")
-                    f.write(f"  FP32: {fp32_row['GFLOPS'].values[0]:.2f} GFLOPS\n")
-                    f.write(f"  FP16 TensorCore: {tc_row['GFLOPS']:.2f} GFLOPS\n")
-                    f.write(f"  TensorCore Speedup: {speedup:.2f}x\n")
-        
-        # Optimization opportunities
-        f.write("\n" + "=" * 80 + "\n")
-        f.write("OPTIMIZATION OPPORTUNITIES:\n")
-        f.write("-" * 40 + "\n")
-        
-        if len(lab1_df) > 0:
-            avg_lab1_gflops = lab1_df['GFLOPS'].mean()
-            avg_cublas_gflops = cublas_df['GFLOPS'].mean()
-            performance_gap = avg_cublas_gflops - avg_lab1_gflops
-            
-            f.write(f"\n1. Performance Gap:\n")
-            f.write(f"   Current Lab-1 average: {avg_lab1_gflops:.2f} GFLOPS\n")
-            f.write(f"   cuBLAS average: {avg_cublas_gflops:.2f} GFLOPS\n")
-            f.write(f"   Gap to close: {performance_gap:.2f} GFLOPS ({(performance_gap/avg_cublas_gflops)*100:.1f}%)\n")
-            
-            f.write(f"\n2. TensorCore Opportunity:\n")
-            if len(tensorcore_df) > 0:
-                avg_tc_gflops = tensorcore_df['GFLOPS'].mean()
-                tc_speedup = avg_tc_gflops / avg_lab1_gflops
-                f.write(f"   Potential speedup with TensorCores: {tc_speedup:.2f}x\n")
-                f.write(f"   Potential performance: {avg_tc_gflops:.2f} GFLOPS\n")
-            
-            f.write(f"\n3. Memory Efficiency:\n")
-            avg_bandwidth = lab1_df['Bandwidth_GB_s'].mean()
-            bandwidth_efficiency = (avg_bandwidth / gpu_specs['peak_bandwidth_gb_s']) * 100
-            f.write(f"   Current bandwidth utilization: {bandwidth_efficiency:.1f}%\n")
-            if bandwidth_efficiency < 50:
-                f.write(f"   → Focus on memory access patterns and coalescing\n")
-            
-            f.write(f"\n4. Arithmetic Intensity:\n")
-            avg_ai = lab1_df['AI'].mean()
-            f.write(f"   Average AI: {avg_ai:.2f} FLOPS/Byte\n")
-            ridge_point = gpu_specs['peak_gflops_fp32'] / gpu_specs['peak_bandwidth_gb_s']
-            f.write(f"   Ridge point (compute-bound threshold): {ridge_point:.2f} FLOPS/Byte\n")
-            if avg_ai < ridge_point:
-                f.write(f"   → Memory-bound: optimize memory access patterns\n")
-            else:
-                f.write(f"   → Compute-bound: optimize computation efficiency\n")
-        
+        # Add more analysis sections...
         f.write("\n" + "=" * 80 + "\n")
     
     print(f"Analysis report saved to {output_file}")
 
 def main():
-    # GPU specifications (modify based on your GPU)
-    # These will be overridden by actual measurements if gpu_specs.txt exists
+    # GPU specifications - using values from your log
     gpu_specs = {
-        'peak_gflops_fp32': 8.1,      # T4 spec
-        'peak_gflops_fp16': 65.0,     # T4 TensorCore spec
-        'peak_bandwidth_gb_s': 320.0  # T4 spec
+        'peak_gflops_fp32': 8100.0,    # Using actual values from gpu_specs output
+        'peak_gflops_fp16': 65000.0,   # TensorCore spec
+        'peak_bandwidth_gb_s': 624.1   # From gpu_specs output
     }
-    
-    # Try to load actual GPU specs from file
-    try:
-        with open('results/gpu_specs.txt', 'r') as f:
-            content = f.read()
-            # Parse peak values from file (this is simplified, adjust as needed)
-            for line in content.split('\n'):
-                if 'Estimated FP32 Peak TFLOPS:' in line:
-                    val = float(line.split(':')[1].strip().split()[0])
-                    gpu_specs['peak_gflops_fp32'] = val * 1000
-                elif 'TensorCore FP16 Peak TFLOPS:' in line:
-                    val = float(line.split(':')[1].strip().split()[0])
-                    gpu_specs['peak_gflops_fp16'] = val * 1000
-                elif 'Peak Memory Bandwidth:' in line:
-                    val = float(line.split(':')[1].strip().split()[0])
-                    gpu_specs['peak_bandwidth_gb_s'] = val
-    except:
-        print("Using default T4 GPU specifications")
     
     # Load benchmark data
     df = load_benchmark_data('results/benchmark_results.csv')

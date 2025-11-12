@@ -1,14 +1,18 @@
 #!/bin/bash
 #SBATCH -J baselines
-#SBATCH -p gpu
-#SBATCH -G 1                 # or use the next line on clusters that prefer gres:
-# #SBATCH --gres=gpu:1
+#SBATCH -p rtx8000          # <-- use RTX 8000 partition (SM 7.5 like T4)
+#SBATCH --gres=gpu:1        # <-- request 1 GPU
 #SBATCH -t 02:00:00
-#SBATCH -o logs/baselines_%j.out
+#SBATCH -o slurm-%x-%j.out  # log file (no 'logs' dir needed)
+
 set -euo pipefail
 
+module purge
 module load cuda/12.2
 module load cmake
+
+# (optional) show GPU to confirm node type
+nvidia-smi --query-gpu=name --format=csv
 
 # Build your repo (cuBLAS bench)
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release

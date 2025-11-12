@@ -8,8 +8,8 @@
 set -euo pipefail
 
 module purge
-module load cuda/11.6
-module load cmake
+module load cuda/11.6.2
+module load cmake/3.28.0
 
 # (optional) show GPU to confirm node type
 nvidia-smi --query-gpu=name --format=csv

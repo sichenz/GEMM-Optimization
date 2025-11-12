@@ -48,3 +48,10 @@ target_link_libraries(benchmark_gemm PRIVATE
     CUDA::cublas
     CUDA::curand
 )
+
+# cuBLAS reference benchmark
+add_executable(cublas_bench src/baselines/cublas_bench.cu)
+set_target_properties(cublas_bench PROPERTIES CUDA_ARCHITECTURES "75")  # T4
+target_link_libraries(cublas_bench PRIVATE CUDA::cublas CUDA::cudart)
+target_compile_options(cublas_bench PRIVATE -O3 --expt-relaxed-constexpr)
+target_compile_definitions(cublas_bench PRIVATE -D_FORCE_INLINES)

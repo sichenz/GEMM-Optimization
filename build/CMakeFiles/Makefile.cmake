@@ -54,4 +54,5 @@ set(CMAKE_MAKEFILE_PRODUCTS
 set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/gpu_specs.dir/DependInfo.cmake"
   "CMakeFiles/benchmark_gemm.dir/DependInfo.cmake"
+  "CMakeFiles/cublas_bench.dir/DependInfo.cmake"
   )

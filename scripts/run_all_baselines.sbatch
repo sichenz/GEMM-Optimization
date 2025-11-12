@@ -1,14 +1,14 @@
 #!/bin/bash
 #SBATCH -J baselines
-#SBATCH -p rtx8000          # <-- use RTX 8000 partition (SM 7.5 like T4)
-#SBATCH --gres=gpu:1        # <-- request 1 GPU
+#SBATCH -p rtx8000
+#SBATCH --gres=gpu:1
 #SBATCH -t 02:00:00
-#SBATCH -o slurm-%x-%j.out  # log file (no 'logs' dir needed)
+#SBATCH -o slurm-%x-%j.out
 
 set -euo pipefail
 
 module purge
-module load cuda/12.2
+module load cuda/11.6
 module load cmake
 
 # (optional) show GPU to confirm node type

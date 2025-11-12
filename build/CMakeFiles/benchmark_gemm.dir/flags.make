@@ -6,5 +6,5 @@ CUDA_DEFINES =
 
 CUDA_INCLUDES = --options-file CMakeFiles/benchmark_gemm.dir/includes_CUDA.rsp
 
-CUDA_FLAGS = -O3 -use_fast_math -std=c++17 "--generate-code=arch=compute_75,code=[compute_75,sm_75]" "--generate-code=arch=compute_80,code=[compute_80,sm_80]" "--generate-code=arch=compute_86,code=[compute_86,sm_86]" "--generate-code=arch=compute_89,code=[compute_89,sm_89]" -Wno-unused-function --expt-relaxed-constexpr --extended-lambda
+CUDA_FLAGS = -O3 -use_fast_math -std=c++17 "--generate-code=arch=compute_75,code=[compute_75,sm_75]" -Wno-unused-function --expt-relaxed-constexpr --extended-lambda
 

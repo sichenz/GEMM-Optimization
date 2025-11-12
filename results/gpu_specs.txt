@@ -1,19 +1,23 @@
+========================================
 GPU Specifications Report
-Generated: Oct 29 2025 16:40:42
+Generated: Nov 12 2025 16:23:41
+========================================
 
 ========================================
-Device 0: Quadro RTX 8000
+Device 0: Tesla V100-SXM2-32GB
 ========================================
 
 === Basic Information ===
-Compute Capability: 7.5
-Total Global Memory: 44.48 GB
-Memory Clock Rate: 6501.00 MHz
-Memory Bus Width: 384 bits
+Compute Capability: 7.0
+Total Global Memory: 31.74 GB
+Memory Clock Rate: 877.00 MHz
+Memory Bus Width: 4096 bits
 
 === Compute Resources ===
-Number of SMs: 72
-Max Threads per SM: 1024
+Number of SMs: 80
+CUDA Cores: 5120 (total)
+CUDA Cores per SM: 64
+Max Threads per SM: 2048
 Max Threads per Block: 1024
 Max Block Dimensions: (1024, 1024, 64)
 Max Grid Dimensions: (2147483647, 65535, 65535)
@@ -22,17 +26,18 @@ Warp Size: 32
 === Memory Hierarchy ===
 L2 Cache Size: 6.00 MB
 Shared Memory per Block: 48.00 KB
-Shared Memory per SM: 64.00 KB
+Shared Memory per SM: 96.00 KB
 Registers per Block: 65536
 Registers per SM: 65536
 Constant Memory: 64.00 KB
 
 === Performance Characteristics ===
-Peak Memory Bandwidth: 624.1 GB/s
-Estimated FP32 Peak TFLOPS: -2.25 TFLOPS
-TensorCore FP16 Peak TFLOPS: 65.00 TFLOPS
-TensorCore Speedup vs FP32: -28.9x
-Clock Rate: 1620.0 MHz
+Peak Memory Bandwidth: 898.0 GB/s
+Estimated FP32 Peak TFLOPS: 15.67 TFLOPS
+Base Clock Rate: 1.53 GHz
+TensorCore Architecture: Volta
+TensorCore FP16 Peak TFLOPS: 112.0 TFLOPS
+TensorCore Speedup vs FP32: 7.1x
 
 === Feature Support ===
 Concurrent Kernels: Yes
@@ -40,5 +45,9 @@ ECC Enabled: Yes
 Unified Addressing: Yes
 Managed Memory: Yes
 Cooperative Launch: Yes
-TensorCore Support: Yes (Compute 7.5)
+TensorCore Support: Yes (Compute 7.0)
+
+=== Arithmetic Intensity Analysis ===
+FP32 Ridge Point: 17.45 FLOPS/Byte
+  (Workloads with AI > 17.45 are compute-bound)
 

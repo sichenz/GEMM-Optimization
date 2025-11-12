@@ -142,6 +142,43 @@ benchmark_gemm/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/benchmark_gemm.dir/build.make CMakeFiles/benchmark_gemm.dir/build
 .PHONY : benchmark_gemm/fast
 
+#=============================================================================
+# Target rules for targets named cublas_bench
+
+# Build rule for target.
+cublas_bench: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 cublas_bench
+.PHONY : cublas_bench
+
+# fast build rule for target.
+cublas_bench/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cublas_bench.dir/build.make CMakeFiles/cublas_bench.dir/build
+.PHONY : cublas_bench/fast
+
+src/baselines/cublas_bench.o: src/baselines/cublas_bench.cu.o
+.PHONY : src/baselines/cublas_bench.o
+
+# target to build an object file
+src/baselines/cublas_bench.cu.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cublas_bench.dir/build.make CMakeFiles/cublas_bench.dir/src/baselines/cublas_bench.cu.o
+.PHONY : src/baselines/cublas_bench.cu.o
+
+src/baselines/cublas_bench.i: src/baselines/cublas_bench.cu.i
+.PHONY : src/baselines/cublas_bench.i
+
+# target to preprocess a source file
+src/baselines/cublas_bench.cu.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cublas_bench.dir/build.make CMakeFiles/cublas_bench.dir/src/baselines/cublas_bench.cu.i
+.PHONY : src/baselines/cublas_bench.cu.i
+
+src/baselines/cublas_bench.s: src/baselines/cublas_bench.cu.s
+.PHONY : src/baselines/cublas_bench.s
+
+# target to generate assembly for a file
+src/baselines/cublas_bench.cu.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/cublas_bench.dir/build.make CMakeFiles/cublas_bench.dir/src/baselines/cublas_bench.cu.s
+.PHONY : src/baselines/cublas_bench.cu.s
+
 src/benchmark_gemm.o: src/benchmark_gemm.cu.o
 .PHONY : src/benchmark_gemm.o
 
@@ -199,7 +236,11 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... benchmark_gemm"
+	@echo "... cublas_bench"
 	@echo "... gpu_specs"
+	@echo "... src/baselines/cublas_bench.o"
+	@echo "... src/baselines/cublas_bench.i"
+	@echo "... src/baselines/cublas_bench.s"
 	@echo "... src/benchmark_gemm.o"
 	@echo "... src/benchmark_gemm.i"
 	@echo "... src/benchmark_gemm.s"

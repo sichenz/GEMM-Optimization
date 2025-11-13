@@ -7,8 +7,8 @@
 #SBATCH --output=logs/phase1_1.out
 #SBATCH --gres=gpu:1
 
-# FASTEST QUEUE OPTIONS
-#SBATCH --partition=gpu_misc_v100,v100,rtx8000,a100_1,a100_2,h100_1
+# Recommended partitions
+#SBATCH --partition=rtx8000,v100,a100_1,a100_2,h100_1
 
 set -euo pipefail
 
@@ -33,10 +33,5 @@ cmake --build build -j
 echo "[2/2] Running Lab-1 benchmark..."
 ./build/benchmark_gemm | tee results/lab1/lab1_gemm_output.txt
 
-<<<<<<< HEAD
 echo "✓ Phase 1.1 completed"
 date
-=======
-echo "Phase 1.1 completed"
-date
->>>>>>> ee3389f (Add Phase 1.2 sbatch script)

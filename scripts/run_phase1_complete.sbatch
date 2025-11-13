@@ -6,7 +6,7 @@
 #SBATCH --job-name=phase1_complete
 #SBATCH --mail-user=sz4972@nyu.edu
 #SBATCH --mail-type=END,FAIL
-#SBATCH --output=logs/phase1_complete_%j.out
+#SBATCH --output=logs/phase1_complete.out
 #SBATCH --gres=gpu:1
 
 set -euo pipefail

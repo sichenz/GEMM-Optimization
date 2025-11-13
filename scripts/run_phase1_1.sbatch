@@ -8,7 +8,7 @@
 #SBATCH --gres=gpu:1
 
 # FASTEST QUEUE OPTIONS
-#SBATCH --partition=gpu_misc_v100,gpu_misc_a100,gpu_misc
+#SBATCH --partition=gpu_misc_v100,gpu_misc
 
 set -euo pipefail
 

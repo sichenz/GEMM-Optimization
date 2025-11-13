@@ -33,5 +33,5 @@ cmake --build build -j
 echo "[2/2] Running Lab-1 benchmark..."
 ./build/benchmark_gemm | tee results/lab1/lab1_gemm_output.txt
 
-echo "✓ Phase 1.1 completed"
+echo "Phase 1.1 completed"
 date

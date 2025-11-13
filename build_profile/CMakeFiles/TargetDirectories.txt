@@ -1,5 +1,0 @@
-/scratch/sz4972/GEMM-Optimization/build_profile/CMakeFiles/gpu_specs.dir
-/scratch/sz4972/GEMM-Optimization/build_profile/CMakeFiles/benchmark_gemm.dir
-/scratch/sz4972/GEMM-Optimization/build_profile/CMakeFiles/cublas_bench.dir
-/scratch/sz4972/GEMM-Optimization/build_profile/CMakeFiles/edit_cache.dir
-/scratch/sz4972/GEMM-Optimization/build_profile/CMakeFiles/rebuild_cache.dir

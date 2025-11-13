@@ -1,1 +1,0 @@
--I"/scratch/sz4972/GEMM-Optimization" -I"/scratch/sz4972/GEMM-Optimization/src" -I"/scratch/sz4972/GEMM-Optimization/src/utils" -I"/scratch/sz4972/GEMM-Optimization/src/ops" -isystem "/usr/local/cuda/targets/x86_64-linux/include"

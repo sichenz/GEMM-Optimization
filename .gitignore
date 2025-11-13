@@ -20,38 +20,7 @@ Thumbs.db
 build/
 build_profile/
 
-# CMake generated files
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
-
-# ===============================
-# Slurm logs
-*.out
-*.err
-slurm-*.out
-slurm-*.err
-
-# ===============================
-# Results & logs
-results/
-logs/
-
 # ===============================
 # CUTLASS build directories
 third_party/cutlass/build/
 third_party/cutlass/build/**
-
-# ===============================
-# Profiling data
-*.ncu-rep
-*.nsys-rep
-*.qdrep
-*.qdstrm
-
-# ===============================
-# Local scratch scripts
-test.sh
-test_gpu.sbatch
-profiling_*.log

@@ -6,6 +6,7 @@
 #SBATCH --job-name=phase1_1_lab1
 #SBATCH --output=logs/phase1_1.out
 #SBATCH --gres=gpu:1
+#SBATCH --partition=gpu_misc
 
 set -euo pipefail
 

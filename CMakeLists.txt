@@ -23,8 +23,9 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src/ops)
 
 # GPU Specifications Tool
 add_executable(gpu_specs src/gpu_specs.cu)
+# FIXED: Support V100 (compute 7.0) instead of only 7.5
 set_target_properties(gpu_specs PROPERTIES 
-    CUDA_ARCHITECTURES "75")
+    CUDA_ARCHITECTURES "70;75")
 target_compile_options(gpu_specs PRIVATE
     -Wno-unused-function
     --expt-relaxed-constexpr
@@ -36,8 +37,9 @@ target_link_libraries(gpu_specs PRIVATE
 
 # GEMM Benchmark
 add_executable(benchmark_gemm src/benchmark_gemm.cu)
+# FIXED: Support V100 (compute 7.0) instead of only 7.5
 set_target_properties(benchmark_gemm PROPERTIES 
-    CUDA_ARCHITECTURES "75")
+    CUDA_ARCHITECTURES "70;75")
 target_compile_options(benchmark_gemm PRIVATE
     -Wno-unused-function
     --expt-relaxed-constexpr
@@ -51,7 +53,7 @@ target_link_libraries(benchmark_gemm PRIVATE
 
 # cuBLAS reference benchmark
 add_executable(cublas_bench src/baselines/cublas_bench.cu)
-set_target_properties(cublas_bench PROPERTIES CUDA_ARCHITECTURES "70;75;80")  # T4
+set_target_properties(cublas_bench PROPERTIES CUDA_ARCHITECTURES "70;75;80")
 target_link_libraries(cublas_bench PRIVATE CUDA::cublas CUDA::cudart)
 target_compile_options(cublas_bench PRIVATE -O3 --expt-relaxed-constexpr)
 target_compile_definitions(cublas_bench PRIVATE -D_FORCE_INLINES)

@@ -57,7 +57,6 @@ struct BenchmarkResult {
 
 // Calculate GFLOPS
 double calculateGFLOPS(int M, int N, int K, float time_ms) {
-    // GEMM: 2*M*N*K operations (multiply-add)
     double operations = 2.0 * M * N * K;
     double gflops = (operations / 1e9) / (time_ms / 1000.0);
     return gflops;
@@ -65,13 +64,12 @@ double calculateGFLOPS(int M, int N, int K, float time_ms) {
 
 // Calculate memory bandwidth
 double calculateBandwidth(int M, int N, int K, float time_ms, int bytes_per_element) {
-    // Memory accesses: read A (M*K), read B (K*N), write C (M*N)
     double bytes = (double)(M * K + K * N + M * N) * bytes_per_element;
     double bandwidth = (bytes / 1e9) / (time_ms / 1000.0);
     return bandwidth;
 }
 
-// Benchmark Lab-1 GEMM (FP32)
+// FIXED: Benchmark Lab-1 GEMM with proper synchronization
 BenchmarkResult benchmarkLab1GEMM(int M, int N, int K, int warmup_iters, int bench_iters) {
     Tensor<float> A{M, K, true};
     Tensor<float> B{K, N, true};
@@ -79,6 +77,9 @@ BenchmarkResult benchmarkLab1GEMM(int M, int N, int K, int warmup_iters, int ben
     
     op_uniform_fill(A, 0.0f, 1.0f);
     op_uniform_fill(B, 0.0f, 1.0f);
+    
+    // Synchronize after initialization
+    CUDA_OK(cudaDeviceSynchronize());
     
     CudaTimer timer;
     
@@ -88,11 +89,12 @@ BenchmarkResult benchmarkLab1GEMM(int M, int N, int K, int warmup_iters, int ben
     }
     CUDA_OK(cudaDeviceSynchronize());
     
-    // Benchmark
+    // Benchmark - measure total time including synchronization
     timer.start();
     for (int i = 0; i < bench_iters; i++) {
         op_mm(A, B, C);
     }
+    CUDA_OK(cudaDeviceSynchronize()); // Critical: sync before stopping timer
     float time_ms = timer.stop() / bench_iters;
     
     BenchmarkResult result;
@@ -118,7 +120,6 @@ BenchmarkResult benchmarkCublasSGEMM(int M, int N, int K, int warmup_iters, int 
     cudaMalloc(&d_B, K * N * sizeof(float));
     cudaMalloc(&d_C, M * N * sizeof(float));
     
-    // Initialize with random data
     curandGenerator_t gen;
     curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
     curandSetPseudoRandomGeneratorSeed(gen, 12345);
@@ -145,6 +146,7 @@ BenchmarkResult benchmarkCublasSGEMM(int M, int N, int K, int warmup_iters, int 
                     d_B, N, d_A, K,
                     &beta, d_C, N);
     }
+    cudaDeviceSynchronize();
     float time_ms = timer.stop() / bench_iters;
     
     BenchmarkResult result;
@@ -166,7 +168,6 @@ BenchmarkResult benchmarkCublasSGEMM(int M, int N, int K, int warmup_iters, int 
     return result;
 }
 
-// Benchmark cuBLAS with mixed precision (FP16 TensorCore)
 __global__ void convert_fp32_to_fp16_kernel(float* in, __half* out, int n) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < n) {
@@ -177,14 +178,13 @@ __global__ void convert_fp32_to_fp16_kernel(float* in, __half* out, int n) {
 BenchmarkResult benchmarkCublasHGEMM(int M, int N, int K, int warmup_iters, int bench_iters) {
     cublasHandle_t handle;
     cublasCreate(&handle);
-    cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH); // Enable TensorCores
+    cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
     
     __half *d_A, *d_B, *d_C;
     cudaMalloc(&d_A, M * K * sizeof(__half));
     cudaMalloc(&d_B, K * N * sizeof(__half));
     cudaMalloc(&d_C, M * N * sizeof(__half));
     
-    // Initialize with random FP32 data, then convert to FP16
     float *d_A_fp32, *d_B_fp32;
     cudaMalloc(&d_A_fp32, M * K * sizeof(float));
     cudaMalloc(&d_B_fp32, K * N * sizeof(float));
@@ -195,7 +195,6 @@ BenchmarkResult benchmarkCublasHGEMM(int M, int N, int K, int warmup_iters, int 
     curandGenerateUniform(gen, d_A_fp32, M * K);
     curandGenerateUniform(gen, d_B_fp32, K * N);
     
-    // Convert FP32 to FP16
     int threads = 256;
     int blocks_A = (M * K + threads - 1) / threads;
     int blocks_B = (K * N + threads - 1) / threads;
@@ -224,6 +223,7 @@ BenchmarkResult benchmarkCublasHGEMM(int M, int N, int K, int warmup_iters, int 
                     d_B, N, d_A, K,
                     &beta, d_C, N);
     }
+    cudaDeviceSynchronize();
     float time_ms = timer.stop() / bench_iters;
     
     BenchmarkResult result;
@@ -286,16 +286,13 @@ int main() {
     std::cout << "GEMM Benchmark Suite" << std::endl;
     std::cout << "====================" << std::endl << std::endl;
     
-    // Get GPU specs for calculating efficiency
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
     std::cout << "GPU: " << prop.name << std::endl;
     std::cout << "Compute Capability: " << prop.major << "." << prop.minor << std::endl;
     std::cout << std::endl;
     
-    // Test configurations
     std::vector<std::tuple<int, int, int>> configs = {
-        // Square matrices
         {128, 128, 128},
         {256, 256, 256},
         {512, 512, 512},
@@ -303,8 +300,6 @@ int main() {
         {2048, 2048, 2048},
         {4096, 4096, 4096},
         {8192, 8192, 8192},
-        
-        // Rectangular matrices
         {4096, 256, 1024},
         {1024, 4096, 512},
         {2048, 512, 2048},
@@ -316,7 +311,6 @@ int main() {
     
     std::vector<BenchmarkResult> all_results;
     
-    // Print header
     std::cout << std::setw(15) << "Kernel"
               << std::setw(8) << "DType"
               << std::setw(6) << "M"
@@ -334,7 +328,6 @@ int main() {
         
         std::cout << "\nTesting M=" << M << ", N=" << N << ", K=" << K << std::endl;
         
-        // Lab-1 GEMM
         try {
             auto result = benchmarkLab1GEMM(M, N, K, warmup_iters, bench_iters);
             printResult(result, std::cout);
@@ -343,7 +336,6 @@ int main() {
             std::cerr << "Lab-1 GEMM failed: " << e.what() << std::endl;
         }
         
-        // cuBLAS SGEMM (FP32)
         try {
             auto result = benchmarkCublasSGEMM(M, N, K, warmup_iters, bench_iters);
             printResult(result, std::cout);
@@ -352,7 +344,6 @@ int main() {
             std::cerr << "cuBLAS SGEMM failed: " << e.what() << std::endl;
         }
         
-        // cuBLAS HGEMM (FP16 TensorCore) - only for compute >= 7.0
         if (prop.major >= 7) {
             try {
                 auto result = benchmarkCublasHGEMM(M, N, K, warmup_iters, bench_iters);
@@ -364,7 +355,6 @@ int main() {
         }
     }
     
-    // Save results
     saveResultsCSV(all_results, "results/benchmark_results.csv");
     
     std::cout << "\nBenchmark completed!" << std::endl;

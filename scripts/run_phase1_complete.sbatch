@@ -14,7 +14,7 @@ set -euo pipefail
 module purge
 
 # Create necessary directories
-mkdir -p results/{profiling,cutlass,plots}
+mkdir -p results/{profiling,cutlass}
 mkdir -p logs
 mkdir -p build
 
@@ -123,7 +123,7 @@ else
             skip=5
         fi
         
-        # Profile with verbose error output
+        # Profile with verbose error output and store logs in results/profiling
         if ncu --set full \
             --export results/profiling/lab1_\${size} \
             --target-processes all \
@@ -131,11 +131,11 @@ else
             --launch-skip \$skip \
             --launch-count 1 \
             --force-overwrite \
-            ./build_profile/benchmark_gemm 2>&1 | tee profiling_\${size}.log | tail -20; then
+            ./build_profile/benchmark_gemm 2>&1 | tee results/profiling/profiling_\${size}.log | tail -20; then
             echo \"  ✓ Profiling \${size} succeeded\"
         else
             echo \"  ✗ Profiling \${size} failed\"
-            echo \"  Check profiling_\${size}.log for details\"
+            echo \"  Check results/profiling/profiling_\${size}.log for details\"
         fi
     done
 fi
@@ -241,6 +241,7 @@ echo ''
 echo '  Profiling Data:'
 if ls results/profiling/*.ncu-rep 1> /dev/null 2>&1; then
     echo '    • results/profiling/lab1_*.ncu-rep'
+    echo '    • results/profiling/profiling_*.log'
     echo '    • results/profiling/profiling_summary.txt'
 else
     echo '    • (Profiling data not available)'

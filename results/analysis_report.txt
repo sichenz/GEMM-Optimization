@@ -13,27 +13,27 @@ PERFORMANCE SUMMARY BY KERNEL:
 ----------------------------------------
 
 Lab1_Tiled:
-  Average GFLOPS: 1471.38
-  Max GFLOPS: 1955.39
-  Min GFLOPS: 23.72
-  Average Bandwidth: 8.91 GB/s
+  Average GFLOPS: 1451.90
+  Max GFLOPS: 1953.60
+  Min GFLOPS: 23.65
+  Average Bandwidth: 8.77 GB/s
   Average AI: 295.35 FLOPS/Byte
-  Average Efficiency: 9.86% of peak
+  Average Efficiency: 9.72% of peak
 
 cuBLAS_SGEMM:
-  Average GFLOPS: 9245.08
-  Max GFLOPS: 12783.37
-  Min GFLOPS: 162.93
-  Average Bandwidth: 54.12 GB/s
+  Average GFLOPS: 9325.58
+  Max GFLOPS: 13168.51
+  Min GFLOPS: 173.24
+  Average Bandwidth: 54.02 GB/s
   Average AI: 295.35 FLOPS/Byte
-  Average Efficiency: 61.92% of peak
+  Average Efficiency: 62.46% of peak
 
 cuBLAS_HGEMM_TensorCore:
-  Average GFLOPS: 49458.95
-  Max GFLOPS: 88221.06
-  Min GFLOPS: 128.91
-  Average Bandwidth: 114.75 GB/s
+  Average GFLOPS: 49692.98
+  Max GFLOPS: 89517.06
+  Min GFLOPS: 135.38
+  Average Bandwidth: 114.71 GB/s
   Average AI: 590.70 FLOPS/Byte
-  Average Efficiency: 76.09% of peak
+  Average Efficiency: 76.45% of peak
 
 ================================================================================

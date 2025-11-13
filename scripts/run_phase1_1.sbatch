@@ -33,5 +33,10 @@ cmake --build build -j
 echo "[2/2] Running Lab-1 benchmark..."
 ./build/benchmark_gemm | tee results/lab1/lab1_gemm_output.txt
 
+<<<<<<< HEAD
 echo "✓ Phase 1.1 completed"
 date
+=======
+echo "Phase 1.1 completed"
+date
+>>>>>>> ee3389f (Add Phase 1.2 sbatch script)

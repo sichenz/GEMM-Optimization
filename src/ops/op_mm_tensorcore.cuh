@@ -83,6 +83,11 @@ __global__ void op_mm_tensorcore_kernel(
     const int m = blockRow * 64 + warpRowInBlock * WMMA_M;
     const int n = blockCol * 64 + warpColInBlock * WMMA_N;
     
+    // Bounds check - skip if out of bounds
+    if (m >= C.h || n >= C.w) {
+        return;
+    }
+    
     // Declare WMMA fragments
     // Fragment A: 16x16 tile from matrix A (FP16, row-major)
     // Fragment B: 16x16 tile from matrix B (FP16, col-major for WMMA)
@@ -100,66 +105,42 @@ __global__ void op_mm_tensorcore_kernel(
     {
         // Load tile from A into fragment (row-major)
         // A[m:m+16, k:k+16] - 16 rows, 16 cols
-        // WMMA load_matrix_sync for row-major expects: pointer to start, leading dimension
-        if (m < A.h && k < A.w && m + WMMA_M <= A.h && k + WMMA_K <= A.w) {
-            // Perfect tile - load directly from tensor memory
-            // Note: Index(A, m, k) gives us the address, but we need the raw pointer
-            // For row-major with stride_h = w, stride_w = 1, we can use direct pointer arithmetic
-            const __half* a_ptr = reinterpret_cast<const __half*>(A.rawp) + A.offset + m * A.stride_h + k * A.stride_w;
-            wmma::load_matrix_sync(frag_a, a_ptr, A.stride_h);
-        } else {
-            // Boundary case - need to pad with zeros
-            __half temp_a[WMMA_M * WMMA_K];
+        // Use temporary array - WMMA will handle it
+        __half temp_a[WMMA_M * WMMA_K];
+        #pragma unroll
+        for (int i = 0; i < WMMA_M; i++) {
             #pragma unroll
-            for (int i = 0; i < WMMA_M; i++) {
-                #pragma unroll
-                for (int j = 0; j < WMMA_K; j++) {
-                    int row = m + i;
-                    int col = k + j;
-                    if (row < A.h && col < A.w) {
-                        temp_a[i * WMMA_K + j] = Index(A, row, col);
-                    } else {
-                        temp_a[i * WMMA_K + j] = __float2half(0.0f);
-                    }
+            for (int j = 0; j < WMMA_K; j++) {
+                int row = m + i;
+                int col = k + j;
+                if (row < A.h && col < A.w) {
+                    temp_a[i * WMMA_K + j] = Index(A, row, col);
+                } else {
+                    temp_a[i * WMMA_K + j] = __float2half(0.0f);
                 }
             }
-            wmma::load_matrix_sync(frag_a, temp_a, WMMA_K);
         }
+        // Note: WMMA warnings about local memory are expected but code should still work
+        wmma::load_matrix_sync(frag_a, temp_a, WMMA_K);
         
         // Load tile from B into fragment (col-major for WMMA)
-        // B[k:k+16, n:n+16] - WMMA expects col-major layout
-        // For col-major, we need to transpose: B_col_major[j][i] = B_row_major[i][j]
-        if (k < B.h && n < B.w && k + WMMA_K <= B.h && n + WMMA_N <= B.w) {
-            // Perfect tile - but need to transpose to col-major for WMMA
-            // WMMA col-major layout: data is stored column by column
-            __half temp_b[WMMA_K * WMMA_N];
+        // B[k:k+16, n:n+16] - need to transpose to col-major
+        __half temp_b[WMMA_K * WMMA_N];
+        #pragma unroll
+        for (int i = 0; i < WMMA_K; i++) {
             #pragma unroll
-            for (int i = 0; i < WMMA_K; i++) {
-                #pragma unroll
-                for (int j = 0; j < WMMA_N; j++) {
-                    // Transpose: col-major means j varies fastest
-                    temp_b[j * WMMA_K + i] = Index(B, k + i, n + j);
+            for (int j = 0; j < WMMA_N; j++) {
+                int row = k + i;
+                int col = n + j;
+                // Transpose: col-major means j varies fastest
+                if (row < B.h && col < B.w) {
+                    temp_b[j * WMMA_K + i] = Index(B, row, col);
+                } else {
+                    temp_b[j * WMMA_K + i] = __float2half(0.0f);
                 }
             }
-            wmma::load_matrix_sync(frag_b, temp_b, WMMA_K);
-        } else {
-            // Boundary case - pad with zeros
-            __half temp_b[WMMA_K * WMMA_N];
-            #pragma unroll
-            for (int i = 0; i < WMMA_K; i++) {
-                #pragma unroll
-                for (int j = 0; j < WMMA_N; j++) {
-                    int row = k + i;
-                    int col = n + j;
-                    if (row < B.h && col < B.w) {
-                        temp_b[j * WMMA_K + i] = Index(B, row, col);
-                    } else {
-                        temp_b[j * WMMA_K + i] = __float2half(0.0f);
-                    }
-                }
-            }
-            wmma::load_matrix_sync(frag_b, temp_b, WMMA_K);
         }
+        wmma::load_matrix_sync(frag_b, temp_b, WMMA_K);
         
         // Perform matrix multiply-accumulate using TensorCores
         // frag_c += frag_a * frag_b
@@ -208,7 +189,14 @@ void op_mm_tensorcore(const Tensor<__half>& A, const Tensor<__half>& B, Tensor<T
     // Launch TensorCore kernel
     op_mm_tensorcore_kernel<<<gridDim, blockDim>>>(A, B, C);
     
-    CUDA_OK(cudaGetLastError());
+    // Check for launch errors
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        throw std::runtime_error("TensorCore kernel launch failed: " + 
+            std::string(cudaGetErrorString(err)));
+    }
+    
+    // Synchronize and check for runtime errors
     CUDA_OK(cudaDeviceSynchronize());
 }
 

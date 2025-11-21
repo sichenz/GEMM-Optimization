@@ -4,42 +4,71 @@ Nsight Compute Profile Analyzer
 Parses and summarizes profiling results
 """
 
-import pandas as pd
-import json
 import subprocess
 import sys
 from pathlib import Path
 
+# Try to import pandas, but make it optional
+try:
+    import pandas as pd
+    HAS_PANDAS = True
+except ImportError:
+    HAS_PANDAS = False
+    print("Warning: pandas not available. Using basic analysis mode.")
+
 def parse_ncu_report(ncu_file):
-    """Parse Nsight Compute report file"""
+    """Parse Nsight Compute report file using ncu CLI"""
     try:
-        # Use ncu CLI to export JSON
+        # Use ncu CLI to export metrics - try summary page first (more reliable)
         result = subprocess.run(
-            ['ncu', '--import', str(ncu_file), '--page', 'details', '--csv'],
+            ['ncu', '--import', str(ncu_file), '--page', 'summary', '--print', 'gpu__time_duration.sum,sm__throughput.avg.pct_of_peak_sustained_elapsed,dram__throughput.avg.bytes_per_second.pct_of_peak_sustained_elapsed,smsp__warps_active.avg.pct_of_active'],
             capture_output=True,
             text=True,
             timeout=30
         )
         
         if result.returncode != 0:
+            # Try alternative: export to CSV
+            result = subprocess.run(
+                ['ncu', '--import', str(ncu_file), '--page', 'summary', '--csv'],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+        
+        if result.returncode != 0:
             print(f"Warning: Could not parse {ncu_file}")
+            print(f"Error: {result.stderr}")
             return None
         
-        # Parse CSV output
-        lines = result.stdout.strip().split('\n')
-        if len(lines) < 2:
-            return None
-        
-        # Simple CSV parsing
+        # Parse output - look for key metrics
         data = {}
-        for line in lines[1:]:  # Skip header
-            parts = line.split(',')
-            if len(parts) >= 2:
-                metric = parts[0].strip('"')
-                value = parts[1].strip('"')
-                data[metric] = value
+        lines = result.stdout.strip().split('\n')
         
-        return data
+        # Try to extract metrics from output
+        for line in lines:
+            # Look for common metric patterns
+            if 'throughput' in line.lower() or 'occupancy' in line.lower() or 'duration' in line.lower():
+                # Simple parsing - adjust based on actual ncu output format
+                parts = line.split()
+                if len(parts) >= 2:
+                    try:
+                        # Try to extract numeric values
+                        for part in parts:
+                            if '%' in part:
+                                val = float(part.replace('%', ''))
+                                if 'throughput' in line.lower() and 'compute' in line.lower():
+                                    data['compute_throughput'] = val
+                                elif 'throughput' in line.lower() and 'memory' in line.lower():
+                                    data['memory_throughput'] = val
+                            elif part.replace('.', '').isdigit():
+                                val = float(part)
+                                if 'occupancy' in line.lower() or 'active' in line.lower():
+                                    data['occupancy'] = val
+                    except:
+                        pass
+        
+        return data if data else None
     except Exception as e:
         print(f"Error parsing {ncu_file}: {e}")
         return None

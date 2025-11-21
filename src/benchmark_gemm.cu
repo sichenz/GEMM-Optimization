@@ -199,6 +199,14 @@ __global__ void convert_fp32_to_fp16_kernel(float* in, __half* out, int n) {
     }
 }
 
+// Helper kernel to convert FP16 to FP32
+__global__ void convert_fp16_to_fp32_kernel(__half* in, float* out, int n) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) {
+        out[idx] = __half2float(in[idx]);  // CUDA's built-in conversion
+    }
+}
+
 // Phase 1.2.1: Benchmark cuBLAS HGEMM (FP16 TensorCore path)
 // This uses TensorCores which are much faster than regular FP32 cores
 // Input: FP16, Accumulation: FP32, Output: FP32 (mixed precision)
@@ -429,14 +437,6 @@ bool validateTensorCoreCorrectness(int M, int N, int K, float tolerance = 1e-3f)
     curandDestroyGenerator(gen);
     
     return passed;
-}
-
-// Helper kernel to convert FP16 to FP32
-__global__ void convert_fp16_to_fp32_kernel(__half* in, float* out, int n) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < n) {
-        out[idx] = __half2float(in[idx]);
-    }
 }
 
 void printResult(const BenchmarkResult& r, std::ostream& out) {

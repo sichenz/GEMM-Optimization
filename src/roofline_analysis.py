@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# Phase 1.3: Performance Analysis and Visualization
+# This script generates the roofline model and performance comparison plots
+# The roofline model helps us understand if kernels are memory-bound or compute-bound
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -6,7 +10,8 @@ import sys
 import re
 
 def parse_gpu_specs_file(filename):
-    """Parse GPU specs from the generated file"""
+    """Parse GPU specs from the generated file
+    Reads peak TFLOPS and bandwidth from gpu_specs.txt for roofline calculations"""
     try:
         with open(filename, 'r') as f:
             content = f.read()
@@ -45,31 +50,54 @@ def calculate_arithmetic_intensity(M, N, K, bytes_per_element):
     """
     Calculate arithmetic intensity for GEMM
     AI = FLOPS / Bytes
+    
+    Arithmetic Intensity tells us if a workload is memory-bound or compute-bound:
+    - High AI (> ridge point): compute-bound (limited by FLOPS)
+    - Low AI (< ridge point): memory-bound (limited by bandwidth)
+    
+    For GEMM:
+    - FLOPS = 2*M*N*K (each element of C requires K multiply-adds = 2 ops)
+    - Bytes = (M*K + K*N + M*N) * bytes_per_element (read A, read B, write C)
     """
     flops = 2.0 * M * N * K
     bytes_transferred = (M * K + K * N + M * N) * bytes_per_element
     return flops / bytes_transferred
 
 def plot_roofline(df, gpu_specs, output_file):
-    """Create roofline plot with improved visualization"""
+    """Create roofline plot with improved visualization
+    
+    The roofline model shows:
+    - X-axis: Arithmetic Intensity (FLOPS/Byte)
+    - Y-axis: Performance (GFLOPS)
+    - Roofline curve: Theoretical peak performance at each AI
+      - Left side (low AI): Memory-bound region (slope = bandwidth)
+      - Right side (high AI): Compute-bound region (flat = peak FLOPS)
+    - Points: Actual kernel performance
+    
+    Kernels below the roofline have optimization opportunities!
+    """
     fig, ax = plt.subplots(figsize=(14, 9))
     
     # Calculate arithmetic intensity for each benchmark
+    # FP16 uses 2 bytes per element, FP32 uses 4 bytes
     df['bytes_per_element'] = df['DType'].apply(lambda x: 2 if x == 'FP16' else 4)
     df['AI'] = df.apply(lambda row: calculate_arithmetic_intensity(
         row['M'], row['N'], row['K'], row['bytes_per_element']), axis=1)
     
-    # Roofline parameters
+    # Roofline parameters from GPU specs
     peak_bandwidth = gpu_specs['peak_bandwidth_gb_s']
     peak_gflops_fp32 = gpu_specs['peak_gflops_fp32']
     peak_gflops_fp16 = gpu_specs['peak_gflops_fp16']
     
     # Create roofline curves
+    # Generate range of AI values for plotting the roofline
     ai_min = max(0.1, df['AI'].min() * 0.5)
     ai_max = min(1000, df['AI'].max() * 2)
     ai_range = np.logspace(np.log10(ai_min), np.log10(ai_max), 1000)
     
-    # FP32 roofline
+    # FP32 roofline: min of memory-bound and compute-bound limits
+    # Memory-bound: Performance = AI * Bandwidth (slope)
+    # Compute-bound: Performance = Peak FLOPS (flat line)
     memory_bound_fp32 = ai_range * peak_bandwidth
     compute_bound_fp32 = np.full_like(ai_range, peak_gflops_fp32)
     roofline_fp32 = np.minimum(memory_bound_fp32, compute_bound_fp32)
@@ -198,7 +226,9 @@ def plot_performance_comparison(df, output_file):
     plt.close()
 
 def generate_analysis_report(df, gpu_specs, output_file):
-    """Generate detailed analysis report"""
+    """Generate detailed analysis report
+    Phase 1.3 Deliverable: Performance comparison report
+    Includes efficiency calculations and gap analysis"""
     with open(output_file, 'w') as f:
         f.write("=" * 80 + "\n")
         f.write("GEMM PERFORMANCE ANALYSIS REPORT\n")

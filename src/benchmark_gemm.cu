@@ -331,6 +331,114 @@ BenchmarkResult benchmarkTensorCoreGEMM(int M, int N, int K, int warmup_iters, i
     return result;
 }
 
+// Phase 2: Validate TensorCore correctness against cuBLAS
+bool validateTensorCoreCorrectness(int M, int N, int K, float tolerance = 1e-3f) {
+    std::cout << "\n=== Validating TensorCore Correctness ===" << std::endl;
+    std::cout << "Matrix size: " << M << "x" << N << "x" << K << std::endl;
+    
+    // Allocate matrices
+    Tensor<__half> A{M, K, true};
+    Tensor<__half> B{K, N, true};
+    Tensor<float> C_tensorcore{M, N, true};
+    Tensor<float> C_cublas{M, N, true};
+    
+    // Initialize with random data
+    Tensor<float> A_fp32{M, K, true};
+    Tensor<float> B_fp32{K, N, true};
+    
+    curandGenerator_t gen;
+    curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
+    curandSetPseudoRandomGeneratorSeed(gen, 12345);
+    curandGenerateUniform(gen, A_fp32.rawp, M * K);
+    curandGenerateUniform(gen, B_fp32.rawp, K * N);
+    
+    // Convert to FP16
+    int threads = 256;
+    int blocks_A = (M * K + threads - 1) / threads;
+    int blocks_B = (K * N + threads - 1) / threads;
+    convert_fp32_to_fp16_kernel<<<blocks_A, threads>>>(A_fp32.rawp, A.rawp, M * K);
+    convert_fp32_to_fp16_kernel<<<blocks_B, threads>>>(B_fp32.rawp, B.rawp, K * N);
+    CUDA_OK(cudaDeviceSynchronize());
+    
+    // Run TensorCore GEMM
+    op_mm_tensorcore(A, B, C_tensorcore);
+    
+    // Run cuBLAS TensorCore GEMM for comparison
+    cublasHandle_t handle;
+    cublasCreate(&handle);
+    cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
+    
+    // cuBLAS HGEMM outputs FP16, so we need FP16 output tensor
+    Tensor<__half> C_cublas_fp16{M, N, true};
+    
+    __half alpha = __float2half(1.0f), beta = __float2half(0.0f);
+    cublasHgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N,
+                N, M, K, &alpha,
+                B.rawp, N, A.rawp, K,
+                &beta, C_cublas_fp16.rawp, N);
+    CUDA_OK(cudaDeviceSynchronize());
+    
+    // Convert cuBLAS FP16 output to FP32 for comparison
+    int blocks_C = (M * N + threads - 1) / threads;
+    convert_fp16_to_fp32_kernel<<<blocks_C, threads>>>(C_cublas_fp16.rawp, C_cublas.rawp, M * N);
+    CUDA_OK(cudaDeviceSynchronize());
+    
+    // Compare results
+    Tensor<float> C_tensorcore_host{M, N, false};
+    Tensor<float> C_cublas_host{M, N, false};
+    C_tensorcore.toHost(C_tensorcore_host);
+    C_cublas.toHost(C_cublas_host);
+    
+    int errors = 0;
+    float max_diff = 0.0f;
+    float max_rel_diff = 0.0f;
+    
+    for (int i = 0; i < M; i++) {
+        for (int j = 0; j < N; j++) {
+            float tc_val = Index(C_tensorcore_host, i, j);
+            float cublas_val = Index(C_cublas_host, i, j);
+            float diff = std::abs(tc_val - cublas_val);
+            float rel_diff = (cublas_val != 0.0f) ? diff / std::abs(cublas_val) : diff;
+            
+            max_diff = std::max(max_diff, diff);
+            max_rel_diff = std::max(max_rel_diff, rel_diff);
+            
+            if (diff > tolerance * std::max(std::abs(tc_val), std::abs(cublas_val))) {
+                errors++;
+                if (errors <= 5) {  // Print first 5 errors
+                    std::cout << "  Mismatch at (" << i << "," << j << "): "
+                              << "TensorCore=" << tc_val << ", cuBLAS=" << cublas_val
+                              << ", diff=" << diff << std::endl;
+                }
+            }
+        }
+    }
+    
+    std::cout << "Max absolute difference: " << max_diff << std::endl;
+    std::cout << "Max relative difference: " << max_rel_diff << std::endl;
+    std::cout << "Total mismatches: " << errors << " / " << (M * N) << std::endl;
+    
+    bool passed = (errors == 0);
+    if (passed) {
+        std::cout << "✓ Validation PASSED (tolerance: " << tolerance << ")" << std::endl;
+    } else {
+        std::cout << "✗ Validation FAILED (tolerance: " << tolerance << ")" << std::endl;
+    }
+    
+    cublasDestroy(handle);
+    curandDestroyGenerator(gen);
+    
+    return passed;
+}
+
+// Helper kernel to convert FP16 to FP32
+__global__ void convert_fp16_to_fp32_kernel(__half* in, float* out, int n) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) {
+        out[idx] = __half2float(in[idx]);
+    }
+}
+
 void printResult(const BenchmarkResult& r, std::ostream& out) {
     out << std::setw(15) << r.kernel_name
         << std::setw(8) << r.dtype
@@ -458,5 +566,34 @@ int main() {
     saveResultsCSV(all_results, "results/benchmark_results.csv");
     
     std::cout << "\nBenchmark completed!" << std::endl;
+    
+    // Phase 2: Validate TensorCore correctness
+    if (prop.major >= 7) {
+        std::cout << "\n" << std::string(80, '=') << std::endl;
+        std::cout << "VALIDATING TENSORCORE CORRECTNESS" << std::endl;
+        std::cout << std::string(80, '=') << std::endl;
+        
+        // Test a few matrix sizes
+        std::vector<std::tuple<int, int, int>> test_sizes = {
+            {128, 128, 128},
+            {512, 512, 512},
+            {1024, 1024, 1024}
+        };
+        
+        int passed = 0;
+        int total = test_sizes.size();
+        
+        for (const auto& size : test_sizes) {
+            int M, N, K;
+            std::tie(M, N, K) = size;
+            if (validateTensorCoreCorrectness(M, N, K, 1e-2f)) {  // 1% tolerance for FP16
+                passed++;
+            }
+        }
+        
+        std::cout << "\n" << std::string(80, '=') << std::endl;
+        std::cout << "VALIDATION SUMMARY: " << passed << " / " << total << " tests passed" << std::endl;
+        std::cout << std::string(80, '=') << std::endl;
+    }
     return 0;
 }

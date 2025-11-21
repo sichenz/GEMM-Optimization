@@ -88,6 +88,11 @@ __global__ void op_mm_tensorcore_kernel(
         return;
     }
     
+    // Shared memory for tiles (WMMA requires shared or global memory, not local)
+    // Each warp needs its own tile space
+    __shared__ __half smem_a[4][WMMA_M * WMMA_K + 8];  // 4 warps, +8 for alignment
+    __shared__ __half smem_b[4][WMMA_K * WMMA_N + 8];  // 4 warps, +8 for alignment
+    
     // Declare WMMA fragments
     // Fragment A: 16x16 tile from matrix A (FP16, row-major)
     // Fragment B: 16x16 tile from matrix B (FP16, col-major for WMMA)
@@ -103,44 +108,45 @@ __global__ void op_mm_tensorcore_kernel(
     // For C[m:m+16, n:n+16] = sum over k: A[m:m+16, k:k+16] * B[k:k+16, n:n+16]
     for (int k = 0; k < A.w; k += WMMA_K)
     {
-        // Load tile from A into fragment (row-major)
+        // Load tile from A into shared memory (row-major)
         // A[m:m+16, k:k+16] - 16 rows, 16 cols
-        // Use temporary array - WMMA will handle it
-        __half temp_a[WMMA_M * WMMA_K];
+        // Each thread loads multiple elements
         #pragma unroll
-        for (int i = 0; i < WMMA_M; i++) {
-            #pragma unroll
-            for (int j = 0; j < WMMA_K; j++) {
-                int row = m + i;
-                int col = k + j;
-                if (row < A.h && col < A.w) {
-                    temp_a[i * WMMA_K + j] = Index(A, row, col);
-                } else {
-                    temp_a[i * WMMA_K + j] = __float2half(0.0f);
-                }
+        for (int load_idx = laneId; load_idx < WMMA_M * WMMA_K; load_idx += 32) {
+            int i = load_idx / WMMA_K;
+            int j = load_idx % WMMA_K;
+            int row = m + i;
+            int col = k + j;
+            if (row < A.h && col < A.w) {
+                smem_a[warpId][load_idx] = Index(A, row, col);
+            } else {
+                smem_a[warpId][load_idx] = __float2half(0.0f);
             }
         }
-        // Note: WMMA warnings about local memory are expected but code should still work
-        wmma::load_matrix_sync(frag_a, temp_a, WMMA_K);
+        __syncthreads();  // Ensure all warps have loaded
         
-        // Load tile from B into fragment (col-major for WMMA)
+        // Load from shared memory into fragment
+        wmma::load_matrix_sync(frag_a, smem_a[warpId], WMMA_K);
+        
+        // Load tile from B into shared memory (col-major for WMMA)
         // B[k:k+16, n:n+16] - need to transpose to col-major
-        __half temp_b[WMMA_K * WMMA_N];
         #pragma unroll
-        for (int i = 0; i < WMMA_K; i++) {
-            #pragma unroll
-            for (int j = 0; j < WMMA_N; j++) {
-                int row = k + i;
-                int col = n + j;
-                // Transpose: col-major means j varies fastest
-                if (row < B.h && col < B.w) {
-                    temp_b[j * WMMA_K + i] = Index(B, row, col);
-                } else {
-                    temp_b[j * WMMA_K + i] = __float2half(0.0f);
-                }
+        for (int load_idx = laneId; load_idx < WMMA_K * WMMA_N; load_idx += 32) {
+            int j = load_idx / WMMA_K;  // Column in output
+            int i = load_idx % WMMA_K;  // Row in B
+            int row = k + i;
+            int col = n + j;
+            // Transpose: col-major means j varies fastest
+            if (row < B.h && col < B.w) {
+                smem_b[warpId][load_idx] = Index(B, row, col);
+            } else {
+                smem_b[warpId][load_idx] = __float2half(0.0f);
             }
         }
-        wmma::load_matrix_sync(frag_b, temp_b, WMMA_K);
+        __syncthreads();  // Ensure all warps have loaded
+        
+        // Load from shared memory into fragment
+        wmma::load_matrix_sync(frag_b, smem_b[warpId], WMMA_K);
         
         // Perform matrix multiply-accumulate using TensorCores
         // frag_c += frag_a * frag_b
@@ -148,16 +154,23 @@ __global__ void op_mm_tensorcore_kernel(
     }
     
     // Store result to global memory (FP32 fragment to output)
+    // Use shared memory for storing (WMMA doesn't like local memory)
+    __shared__ float smem_c[4][WMMA_M * WMMA_N + 8];  // 4 warps
+    
     if (m < C.h && n < C.w) {
-        float temp_c[WMMA_M * WMMA_N];
-        wmma::store_matrix_sync(temp_c, frag_c, WMMA_N, wmma::mem_row_major);
+        // Store fragment to shared memory first
+        wmma::store_matrix_sync(smem_c[warpId], frag_c, WMMA_N, wmma::mem_row_major);
+        __syncthreads();
         
-        // Write to output with bounds checking
+        // Write from shared memory to global memory with bounds checking
         int rows = std::min(WMMA_M, C.h - m);
         int cols = std::min(WMMA_N, C.w - n);
-        for (int i = 0; i < rows; i++) {
-            for (int j = 0; j < cols; j++) {
-                Index(C, m + i, n + j) = static_cast<T>(temp_c[i * WMMA_N + j]);
+        #pragma unroll
+        for (int store_idx = laneId; store_idx < rows * cols; store_idx += 32) {
+            int i = store_idx / WMMA_N;
+            int j = store_idx % WMMA_N;
+            if (i < rows && j < cols) {
+                Index(C, m + i, n + j) = static_cast<T>(smem_c[warpId][i * WMMA_N + j]);
             }
         }
     }

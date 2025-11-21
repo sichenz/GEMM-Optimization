@@ -14,7 +14,7 @@ set -euo pipefail
 module purge
 
 # Create necessary directories
-mkdir -p results/{profiling,cutlass,plots}
+mkdir -p results/{cutlass,plots}
 mkdir -p logs
 mkdir -p build
 
@@ -89,60 +89,7 @@ echo '✓ Benchmarks complete'
 echo ''
 
 echo '========================================================================'
-echo 'STEP 4: Nsight Compute Profiling'
-echo '========================================================================'
-echo 'Profiling Lab-1 kernel for key matrix sizes...'
-echo ''
-
-# Create profiling build with proper configuration
-rm -rf build_profile
-mkdir -p build_profile
-cd build_profile
-echo 'Building profiling executable...'
-cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo
-make -j8 benchmark_gemm
-cd ..
-
-if [ ! -f 'build_profile/benchmark_gemm' ]; then
-    echo '✗ Failed to build profiling executable'
-    echo '  Skipping profiling step'
-else
-    # Profile key sizes with better error handling
-    for size in 512 2048 4096; do
-        echo \"Profiling \${size}x\${size}x\${size}...\"
-        
-        # Calculate launch skip based on size
-        # Skip indices: 128=0, 256=1, 512=2, 1024=3, 2048=4, 4096=5, 8192=6
-        if [ \$size -eq 512 ]; then
-            skip=2
-        elif [ \$size -eq 2048 ]; then
-            skip=4
-        else
-            skip=5
-        fi
-        
-        # Profile with verbose error output
-        if ncu --set full \
-            --export results/profiling/lab1_\${size} \
-            --target-processes all \
-            --kernel-name regex:op_mm_kernel \
-            --launch-skip \$skip \
-            --launch-count 1 \
-            --force-overwrite \
-            ./build_profile/benchmark_gemm 2>&1 | tee profiling_\${size}.log | tail -20; then
-            echo \"  ✓ Profiling \${size} succeeded\"
-        else
-            echo \"  ✗ Profiling \${size} failed\"
-            echo \"  Check profiling_\${size}.log for details\"
-        fi
-    done
-fi
-
-echo '✓ Profiling step complete'
-echo ''
-
-echo '========================================================================'
-echo 'STEP 5: CUTLASS Benchmarks'
+echo 'STEP 4: CUTLASS Benchmarks'
 echo '========================================================================'
 
 # Check if CUTLASS submodule exists
@@ -207,18 +154,11 @@ fi
 echo ''
 
 echo '========================================================================'
-echo 'STEP 6: Generating Analysis and Visualizations'
+echo 'STEP 5: Generating Analysis and Visualizations'
 echo '========================================================================'
 
 # Run comprehensive analysis
 python3 src/roofline_analysis.py
-
-# Analyze profiling results (only if files exist)
-if ls results/profiling/*.ncu-rep 1> /dev/null 2>&1; then
-    python3 src/analyze_nsight_profile.py
-else
-    echo 'No profiling data found, skipping Nsight analysis'
-fi
 
 echo ''
 echo '✓ Analysis complete'
@@ -235,14 +175,6 @@ echo ''
 echo '  Benchmark Results:'
 echo '    • results/benchmark_results.csv'
 echo '    • results/cutlass/ (CUTLASS results)'
-echo ''
-echo '  Profiling Data:'
-if ls results/profiling/*.ncu-rep 1> /dev/null 2>&1; then
-    echo '    • results/profiling/lab1_*.ncu-rep'
-    echo '    • results/profiling/profiling_summary.txt'
-else
-    echo '    • (Profiling data not available)'
-fi
 echo ''
 echo '  Analysis & Visualizations:'
 echo '    • results/roofline_plot.png'

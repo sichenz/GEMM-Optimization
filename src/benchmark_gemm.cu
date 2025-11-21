@@ -11,6 +11,7 @@
 #include "utils/tensor.cuh"
 #include "utils/check_error.cuh"
 #include "ops/op_mm.cuh"
+#include "ops/op_mm_tensorcore.cuh"
 #include "ops/op_elemwise.cuh"
 
 // Phase 1.1.3: Set up benchmarking framework
@@ -274,6 +275,62 @@ BenchmarkResult benchmarkCublasHGEMM(int M, int N, int K, int warmup_iters, int 
     return result;
 }
 
+// Phase 2: Benchmark our TensorCore GEMM implementation
+BenchmarkResult benchmarkTensorCoreGEMM(int M, int N, int K, int warmup_iters, int bench_iters) {
+    // Allocate FP16 input matrices and FP32 output
+    Tensor<__half> A{M, K, true};
+    Tensor<__half> B{K, N, true};
+    Tensor<float> C{M, N, true};
+    
+    // Initialize with random data (convert FP32 to FP16)
+    Tensor<float> A_fp32{M, K, true};
+    Tensor<float> B_fp32{K, N, true};
+    
+    curandGenerator_t gen;
+    curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
+    curandSetPseudoRandomGeneratorSeed(gen, 12345);
+    curandGenerateUniform(gen, A_fp32.data, M * K);
+    curandGenerateUniform(gen, B_fp32.data, K * N);
+    
+    // Convert FP32 to FP16
+    int threads = 256;
+    int blocks_A = (M * K + threads - 1) / threads;
+    int blocks_B = (K * N + threads - 1) / threads;
+    convert_fp32_to_fp16_kernel<<<blocks_A, threads>>>(A_fp32.data, A.data, M * K);
+    convert_fp32_to_fp16_kernel<<<blocks_B, threads>>>(B_fp32.data, B.data, K * N);
+    CUDA_OK(cudaDeviceSynchronize());
+    
+    CudaTimer timer;
+    
+    // Warmup runs: Essential to ensure the GPU is fully initialized and clocks are boosted
+    for (int i = 0; i < warmup_iters; i++) {
+        op_mm_tensorcore(A, B, C);
+    }
+    CUDA_OK(cudaDeviceSynchronize());
+    
+    // Benchmark runs: Measure the actual performance
+    timer.start();
+    for (int i = 0; i < bench_iters; i++) {
+        op_mm_tensorcore(A, B, C);
+    }
+    CUDA_OK(cudaDeviceSynchronize());
+    float time_ms = timer.stop() / bench_iters;
+    
+    BenchmarkResult result;
+    result.M = M;
+    result.N = N;
+    result.K = K;
+    result.time_ms = time_ms;
+    result.gflops = calculateGFLOPS(M, N, K, time_ms);
+    result.bandwidth_gb_s = calculateBandwidth(M, N, K, time_ms, sizeof(__half));
+    result.kernel_name = "Lab2_TensorCore";
+    result.dtype = "FP16";
+    
+    curandDestroyGenerator(gen);
+    
+    return result;
+}
+
 void printResult(const BenchmarkResult& r, std::ostream& out) {
     out << std::setw(15) << r.kernel_name
         << std::setw(8) << r.dtype
@@ -385,6 +442,15 @@ int main() {
                 all_results.push_back(result);
             } catch (const std::exception& e) {
                 std::cerr << "cuBLAS HGEMM failed: " << e.what() << std::endl;
+            }
+            
+            // Phase 2: Benchmark our TensorCore implementation
+            try {
+                auto result = benchmarkTensorCoreGEMM(M, N, K, warmup_iters, bench_iters);
+                printResult(result, std::cout);
+                all_results.push_back(result);
+            } catch (const std::exception& e) {
+                std::cerr << "TensorCore GEMM failed: " << e.what() << std::endl;
             }
         }
     }

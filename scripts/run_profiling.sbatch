@@ -61,25 +61,35 @@ for size in 512 2048 4096; do
     echo \"Profiling \${size}x\${size}x\${size}...\"
     
     # Calculate launch skip based on size
-    # Matrix sizes in benchmark: 128(0), 256(1), 512(2), 1024(3), 2048(4), 4096(5), 8192(6)
+    # Each matrix size runs 3 kernels: Lab1_Tiled, cuBLAS_SGEMM, cuBLAS_HGEMM
+    # So for size 512 (3rd size): skip = (0+1+2) * 3 = 9 launches (skip 128, 256, and cuBLAS for 512)
+    # We want to profile the Lab-1 kernel for the target size
     if [ \$size -eq 512 ]; then
-        skip=2
+        # Size 512 is index 2: skip 0,1 (128,256) = 6 launches, then Lab1 for 512 = launch 6
+        skip=6
     elif [ \$size -eq 2048 ]; then
-        skip=4
+        # Size 2048 is index 4: skip 0,1,2,3 (128,256,512,1024) = 12 launches, then Lab1 for 2048 = launch 12
+        skip=12
     else
-        skip=5
+        # Size 4096 is index 5: skip 0,1,2,3,4 = 15 launches, then Lab1 for 4096 = launch 15
+        skip=15
     fi
     
     # Profile with Nsight Compute
+    # Note: We profile all kernels since the template kernel name might be mangled
+    # The Lab-1 kernel will be in the report and can be identified manually
     if ncu --set full \
         --export results/profiling/lab1_\${size} \
         --target-processes all \
-        --kernel-name regex:op_mm_kernel \
         --launch-skip \$skip \
         --launch-count 1 \
         --force-overwrite \
         ./build_profile/benchmark_gemm 2>&1 | tee logs/profiling_\${size}.log; then
-        echo \"  ✓ Profiling \${size} succeeded\"
+        if [ -f results/profiling/lab1_\${size}.ncu-rep ]; then
+            echo \"  ✓ Profiling \${size} succeeded\"
+        else
+            echo \"  ✗ Profiling \${size} failed - no .ncu-rep file created\"
+        fi
     else
         echo \"  ✗ Profiling \${size} failed\"
         echo \"  Check logs/profiling_\${size}.log for details\"

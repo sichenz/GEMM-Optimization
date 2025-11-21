@@ -289,15 +289,15 @@ BenchmarkResult benchmarkTensorCoreGEMM(int M, int N, int K, int warmup_iters, i
     curandGenerator_t gen;
     curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
     curandSetPseudoRandomGeneratorSeed(gen, 12345);
-    curandGenerateUniform(gen, A_fp32.data, M * K);
-    curandGenerateUniform(gen, B_fp32.data, K * N);
+    curandGenerateUniform(gen, A_fp32.rawp, M * K);
+    curandGenerateUniform(gen, B_fp32.rawp, K * N);
     
     // Convert FP32 to FP16
     int threads = 256;
     int blocks_A = (M * K + threads - 1) / threads;
     int blocks_B = (K * N + threads - 1) / threads;
-    convert_fp32_to_fp16_kernel<<<blocks_A, threads>>>(A_fp32.data, A.data, M * K);
-    convert_fp32_to_fp16_kernel<<<blocks_B, threads>>>(B_fp32.data, B.data, K * N);
+    convert_fp32_to_fp16_kernel<<<blocks_A, threads>>>(A_fp32.rawp, A.rawp, M * K);
+    convert_fp32_to_fp16_kernel<<<blocks_B, threads>>>(B_fp32.rawp, B.rawp, K * N);
     CUDA_OK(cudaDeviceSynchronize());
     
     CudaTimer timer;

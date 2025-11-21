@@ -64,7 +64,7 @@ def calculate_arithmetic_intensity(M, N, K, bytes_per_element):
     return flops / bytes_transferred
 
 def plot_roofline(df, gpu_specs, output_file):
-    """Create roofline plot with improved visualization
+    """Create roofline plot with custom visualization
     
     The roofline model shows:
     - X-axis: Arithmetic Intensity (FLOPS/Byte)
@@ -76,7 +76,9 @@ def plot_roofline(df, gpu_specs, output_file):
     
     Kernels below the roofline have optimization opportunities!
     """
-    fig, ax = plt.subplots(figsize=(14, 9))
+    # Custom figure with different style
+    fig, ax = plt.subplots(figsize=(12, 8))
+    fig.patch.set_facecolor('white')
     
     # Calculate arithmetic intensity for each benchmark
     # FP16 uses 2 bytes per element, FP32 uses 4 bytes
@@ -102,51 +104,71 @@ def plot_roofline(df, gpu_specs, output_file):
     compute_bound_fp32 = np.full_like(ai_range, peak_gflops_fp32)
     roofline_fp32 = np.minimum(memory_bound_fp32, compute_bound_fp32)
     
-    # Plot rooflines
-    ax.loglog(ai_range, roofline_fp32, 'k-', linewidth=2.5, label='FP32 Roofline', zorder=1)
+    # Plot rooflines with custom styling
+    ax.loglog(ai_range, roofline_fp32, color='#2c3e50', linewidth=3, 
+              label='FP32 Theoretical Peak', zorder=1, linestyle='-')
     
     if peak_gflops_fp16 > 0:
         memory_bound_fp16 = ai_range * peak_bandwidth
         compute_bound_fp16 = np.full_like(ai_range, peak_gflops_fp16)
         roofline_fp16 = np.minimum(memory_bound_fp16, compute_bound_fp16)
-        ax.loglog(ai_range, roofline_fp16, 'b--', linewidth=2.5, label='FP16 TensorCore Roofline', zorder=1)
+        ax.loglog(ai_range, roofline_fp16, color='#8e44ad', linewidth=3, 
+                 label='FP16 TensorCore Theoretical Peak', zorder=1, linestyle='--')
     
-    # Plot benchmark results
+    # Plot benchmark results with custom colors and styling
     kernels = df['Kernel'].unique()
+    # Custom color scheme - different from typical examples
     colors = {
-        'Lab1_Tiled': '#e74c3c',
-        'cuBLAS_SGEMM': '#27ae60',
-        'cuBLAS_HGEMM_TensorCore': '#3498db'
+        'Lab1_Tiled': '#c0392b',  # Dark red
+        'cuBLAS_SGEMM': '#16a085',  # Teal green
+        'cuBLAS_HGEMM_TensorCore': '#2980b9'  # Blue
     }
     markers = {
-        'Lab1_Tiled': 'o',
-        'cuBLAS_SGEMM': 's',
-        'cuBLAS_HGEMM_TensorCore': '^'
+        'Lab1_Tiled': 'D',  # Diamond
+        'cuBLAS_SGEMM': 'P',  # Plus (filled)
+        'cuBLAS_HGEMM_TensorCore': 'X'  # X marker
     }
     
     for kernel in kernels:
         kernel_df = df[df['Kernel'] == kernel]
         color = colors.get(kernel, 'gray')
-        marker = markers.get(kernel, 'x')
+        marker = markers.get(kernel, 'o')
         ax.loglog(kernel_df['AI'], kernel_df['GFLOPS'],
-                 marker=marker, color=color, markersize=10,
-                 linestyle='', label=kernel, alpha=0.8, markeredgewidth=1.5,
-                 markeredgecolor='white', zorder=3)
+                 marker=marker, color=color, markersize=11,
+                 linestyle='', label=kernel.replace('_', ' '), 
+                 alpha=0.75, markeredgewidth=2,
+                 markeredgecolor='white', zorder=3, linewidth=2)
     
-    # Calculate ridge points
+    # Calculate and annotate ridge points
     ridge_point_fp32 = peak_gflops_fp32 / peak_bandwidth
-    ax.axvline(x=ridge_point_fp32, color='k', linestyle=':', alpha=0.3, linewidth=1.5)
+    ax.axvline(x=ridge_point_fp32, color='#34495e', linestyle=':', 
+               alpha=0.5, linewidth=2, label=f'FP32 Ridge Point ({ridge_point_fp32:.1f} FLOPS/Byte)')
     
     if peak_gflops_fp16 > 0:
         ridge_point_fp16 = peak_gflops_fp16 / peak_bandwidth
-        ax.axvline(x=ridge_point_fp16, color='b', linestyle=':', alpha=0.3, linewidth=1.5)
+        ax.axvline(x=ridge_point_fp16, color='#7d3c98', linestyle=':', 
+                  alpha=0.5, linewidth=2, label=f'FP16 Ridge Point ({ridge_point_fp16:.1f} FLOPS/Byte)')
     
-    # Labels and formatting
-    ax.set_xlabel('Arithmetic Intensity (FLOPS/Byte)', fontsize=14, fontweight='bold')
-    ax.set_ylabel('Performance (GFLOPS)', fontsize=14, fontweight='bold')
-    ax.set_title(f'Roofline Model: GEMM Performance Analysis', fontsize=16, fontweight='bold', pad=20)
-    ax.grid(True, which='both', linestyle='--', alpha=0.4, linewidth=0.5)
-    ax.legend(loc='lower right', fontsize=11, framealpha=0.9)
+    # Add shaded regions to show memory-bound vs compute-bound
+    # Memory-bound region (left of ridge point)
+    ax.axvspan(ai_min, ridge_point_fp32, alpha=0.1, color='orange', 
+              label='Memory-Bound Region')
+    
+    # Labels and formatting with custom style
+    ax.set_xlabel('Arithmetic Intensity (FLOPS per Byte)', 
+                 fontsize=13, fontweight='bold', color='#2c3e50')
+    ax.set_ylabel('Performance (GFLOPS)', 
+                 fontsize=13, fontweight='bold', color='#2c3e50')
+    ax.set_title('GEMM Performance Roofline Analysis\nPhase 1 Baseline Results', 
+                fontsize=15, fontweight='bold', pad=15, color='#2c3e50')
+    
+    # Custom grid
+    ax.grid(True, which='major', linestyle='-', alpha=0.3, linewidth=0.8, color='gray')
+    ax.grid(True, which='minor', linestyle=':', alpha=0.2, linewidth=0.5, color='lightgray')
+    
+    # Custom legend
+    ax.legend(loc='lower right', fontsize=10, framealpha=0.95, 
+             edgecolor='black', fancybox=True, shadow=True)
     
     # Set axis limits
     y_min = max(1, df['GFLOPS'].min() * 0.5)
@@ -154,42 +176,67 @@ def plot_roofline(df, gpu_specs, output_file):
     ax.set_ylim(y_min, y_max)
     ax.set_xlim(ai_min, ai_max)
     
-    ax.tick_params(axis='both', which='major', labelsize=11)
+    # Custom tick styling
+    ax.tick_params(axis='both', which='major', labelsize=10, 
+                  colors='#2c3e50', width=1.5)
+    ax.tick_params(axis='both', which='minor', labelsize=8)
+    
+    # Add text annotation for key insights
+    ax.text(0.02, 0.98, 'Higher is Better\nPoints below roofline indicate\noptimization opportunities', 
+           transform=ax.transAxes, fontsize=9, verticalalignment='top',
+           bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
     
     plt.tight_layout()
-    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    plt.savefig(output_file, dpi=300, bbox_inches='tight', facecolor='white')
     print(f"Roofline plot saved to {output_file}")
     plt.close()
 
 def plot_performance_comparison(df, output_file):
-    """Plot performance comparison across different matrix sizes"""
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 7))
+    """Plot performance comparison across different matrix sizes with custom styling"""
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+    fig.patch.set_facecolor('white')
     
     # Filter square matrices
     square_df = df[(df['M'] == df['N']) & (df['N'] == df['K'])].copy()
     
     if len(square_df) > 0:
         kernels = square_df['Kernel'].unique()
+        # Custom color scheme - different from standard
         colors = {
-            'Lab1_Tiled': '#e74c3c',
-            'cuBLAS_SGEMM': '#27ae60',
-            'cuBLAS_HGEMM_TensorCore': '#3498db'
+            'Lab1_Tiled': '#8b0000',  # Dark red
+            'cuBLAS_SGEMM': '#006400',  # Dark green
+            'cuBLAS_HGEMM_TensorCore': '#00008b'  # Dark blue
+        }
+        markers = {
+            'Lab1_Tiled': 'v',  # Down triangle
+            'cuBLAS_SGEMM': 's',  # Square
+            'cuBLAS_HGEMM_TensorCore': '*'  # Star
+        }
+        linestyles = {
+            'Lab1_Tiled': '-',
+            'cuBLAS_SGEMM': '--',
+            'cuBLAS_HGEMM_TensorCore': '-.'
         }
         
         # Plot 1: GFLOPS vs Matrix Size
         for kernel in kernels:
             kernel_df = square_df[square_df['Kernel'] == kernel].sort_values('M')
             ax1.plot(kernel_df['M'], kernel_df['GFLOPS'],
-                    marker='o', label=kernel, color=colors.get(kernel, 'gray'),
-                    linewidth=2.5, markersize=8, markeredgewidth=1.5, markeredgecolor='white')
+                    marker=markers.get(kernel, 'o'), 
+                    label=kernel.replace('_', ' '), 
+                    color=colors.get(kernel, 'gray'),
+                    linewidth=3, markersize=9, markeredgewidth=2, 
+                    markeredgecolor='white', linestyle=linestyles.get(kernel, '-'),
+                    alpha=0.85)
         
-        ax1.set_xlabel('Matrix Size (M=N=K)', fontsize=13, fontweight='bold')
-        ax1.set_ylabel('Performance (GFLOPS)', fontsize=13, fontweight='bold')
-        ax1.set_title('GEMM Performance vs Matrix Size', fontsize=14, fontweight='bold')
-        ax1.legend(fontsize=11)
-        ax1.grid(True, alpha=0.3, linestyle='--')
+        ax1.set_xlabel('Matrix Dimension (M = N = K)', fontsize=12, fontweight='bold', color='#2c3e50')
+        ax1.set_ylabel('Performance (GFLOPS)', fontsize=12, fontweight='bold', color='#2c3e50')
+        ax1.set_title('GEMM Throughput Scaling Analysis', fontsize=13, fontweight='bold', pad=10, color='#2c3e50')
+        ax1.legend(fontsize=10, framealpha=0.9, loc='upper left')
+        ax1.grid(True, alpha=0.25, linestyle='-', linewidth=0.8)
         ax1.set_xscale('log', base=2)
         ax1.set_yscale('log')
+        ax1.tick_params(axis='both', which='major', labelsize=10, colors='#2c3e50')
         
         # Plot 2: Efficiency vs Matrix Size
         cublas_fp32 = square_df[square_df['Kernel'] == 'cuBLAS_SGEMM']
@@ -208,20 +255,31 @@ def plot_performance_comparison(df, output_file):
                         efficiency.append(eff)
                         sizes.append(row['M'])
                 
-                ax2.plot(sizes, efficiency, marker='o', label=f"{kernel} vs cuBLAS",
-                        color=colors.get(kernel, 'gray'), linewidth=2.5, markersize=8,
-                        markeredgewidth=1.5, markeredgecolor='white')
+                ax2.plot(sizes, efficiency, 
+                        marker=markers.get(kernel, 'o'), 
+                        label=f"{kernel.replace('_', ' ')} relative to cuBLAS FP32",
+                        color=colors.get(kernel, 'gray'), 
+                        linewidth=3, markersize=9,
+                        markeredgewidth=2, markeredgecolor='white',
+                        linestyle=linestyles.get(kernel, '-'), alpha=0.85)
         
-        ax2.set_xlabel('Matrix Size (M=N=K)', fontsize=13, fontweight='bold')
-        ax2.set_ylabel('Efficiency (% of cuBLAS FP32)', fontsize=13, fontweight='bold')
-        ax2.set_title('Relative Efficiency Analysis', fontsize=14, fontweight='bold')
-        ax2.legend(fontsize=11)
-        ax2.grid(True, alpha=0.3, linestyle='--')
+        ax2.set_xlabel('Matrix Dimension (M = N = K)', fontsize=12, fontweight='bold', color='#2c3e50')
+        ax2.set_ylabel('Relative Performance (% of cuBLAS FP32)', fontsize=12, fontweight='bold', color='#2c3e50')
+        ax2.set_title('Performance Efficiency Comparison', fontsize=13, fontweight='bold', pad=10, color='#2c3e50')
+        ax2.legend(fontsize=10, framealpha=0.9, loc='best')
+        ax2.grid(True, alpha=0.25, linestyle='-', linewidth=0.8)
         ax2.set_xscale('log', base=2)
-        ax2.axhline(y=100, color='#27ae60', linestyle='--', alpha=0.5, linewidth=2)
+        ax2.axhline(y=100, color='#006400', linestyle='--', alpha=0.6, linewidth=2.5, 
+                   label='100% Baseline (cuBLAS FP32)')
+        ax2.tick_params(axis='both', which='major', labelsize=10, colors='#2c3e50')
+        
+        # Add annotation for key insight
+        ax2.text(0.02, 0.98, 'Values > 100% indicate\nbetter than cuBLAS FP32', 
+                transform=ax2.transAxes, fontsize=9, verticalalignment='top',
+                bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.6))
     
     plt.tight_layout()
-    plt.savefig(output_file, dpi=300, bbox_inches='tight')
+    plt.savefig(output_file, dpi=300, bbox_inches='tight', facecolor='white')
     print(f"Performance comparison saved to {output_file}")
     plt.close()
 

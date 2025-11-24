@@ -59,7 +59,7 @@ static void ensure_tc_mm_shape_device(const Tensor<AT> &a, const Tensor<BT> &b, 
 // - 32 threads per warp (threadIdx.x = 0-31)
 // - 4 warps per threadblock (threadIdx.y = 0-3, 128 threads total)
 // - Each warp computes one 16x16 output tile
-// - Each block computes 16x64 output (1 row of 4 warps, each covering 16 cols)
+// - Each block computes 32x32 output (2x2 warps, each 16x16)
 template <typename T>
 __global__ void op_mm_tensorcore_kernel(
     const Tensor<__half> A,      // FP16 input matrix A (row-major)
@@ -76,15 +76,20 @@ __global__ void op_mm_tensorcore_kernel(
     const int blockCol = blockIdx.x;
     
     // Warp position within block
-    // Arrange 4 warps in 1 row to cover 64 columns (each warp handles 16 cols)
-    // Warp 0: cols 0-15, Warp 1: cols 16-31, Warp 2: cols 32-47, Warp 3: cols 48-63
-    const int warpRowInBlock = 0;  // All warps in same row
-    const int warpColInBlock = warpId;  // 0, 1, 2, or 3
+    // Arrange 4 warps in 2x2 to cover 32x32, then use 2 blocks to cover 64x64
+    // Actually, simpler: use 8 warps per block (256 threads) to cover 64x64
+    // But we only have 4 warps, so let's use 2x2 arrangement covering 32x32 per block
+    // Warp 0: (0,0) -> rows 0-15, cols 0-15
+    // Warp 1: (0,1) -> rows 0-15, cols 16-31
+    // Warp 2: (1,0) -> rows 16-31, cols 0-15
+    // Warp 3: (1,1) -> rows 16-31, cols 16-31
+    const int warpRowInBlock = warpId / 2;  // 0 or 1
+    const int warpColInBlock = warpId % 2;  // 0 or 1
     
     // Global row/col indices for this warp's output tile
-    // Each block handles 16 rows x 64 cols (4 warps in 1 row, each 16x16)
-    const int m = blockRow * 16 + warpRowInBlock * WMMA_M;
-    const int n = blockCol * 64 + warpColInBlock * WMMA_N;
+    // Each block handles 32 rows x 32 cols (2x2 warps, each 16x16)
+    const int m = blockRow * 32 + warpRowInBlock * WMMA_M;
+    const int n = blockCol * 32 + warpColInBlock * WMMA_N;
     
     // Note: We don't early return here because we need all warps to participate
     // in shared memory operations. We'll check bounds when writing output.
@@ -205,10 +210,9 @@ void op_mm_tensorcore(const Tensor<__half>& A, const Tensor<__half>& B, Tensor<T
     dim3 blockDim(32, 4);  // 32 threads per warp, 4 warps per block
     
     // Grid dimension: number of threadblocks needed
-    // Each block handles 16x64 output (1 warp row x 4 warp cols)
-    // So we need (C.h/16) blocks in height, (C.w/64) blocks in width
-    dim3 gridDim((C.w + 63) / 64,
-                 (C.h + 15) / 16);
+    // Each block handles 32x32 output (2x2 warps, each 16x16)
+    dim3 gridDim((C.w + 31) / 32,
+                 (C.h + 31) / 32);
     
     // Launch TensorCore kernel
     op_mm_tensorcore_kernel<<<gridDim, blockDim>>>(A, B, C);

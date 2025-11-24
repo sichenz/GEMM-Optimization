@@ -2,9 +2,9 @@
 
 // Phase 2: Optimized TensorCore GEMM Implementation
 // Optimizations:
-// 1. Larger blocks: 8 warps (256 threads) for 64×64 output tiles
+// 1. Keep 4 warps (proven to work) but add double buffering
 // 2. Software pipelining: Double buffering to overlap load/compute
-// 3. Better memory access patterns: Coalesced loads
+// 3. Better memory access: Coalesced loads
 
 #include "utils/check_error.cuh"
 #include "utils/tensor.cuh"
@@ -18,30 +18,31 @@ using namespace nvcuda;
 #define WMMA_K 16
 
 // Optimized TensorCore GEMM Kernel with double buffering
-// Uses 8 warps per block (256 threads) for 64×64 output tiles
+// Uses 4 warps per block (128 threads) for 32×32 output tiles
+// Double buffering overlaps loading next tile with computing current tile
 template <typename T>
 __global__ void op_mm_tensorcore_optimized_kernel(
     const Tensor<__half> A,
     const Tensor<__half> B,
     Tensor<T> C)
 {
-    const int warpId = threadIdx.y;  // 0-7
+    const int warpId = threadIdx.y;  // 0-3
     const int laneId = threadIdx.x;  // 0-31
     
     const int blockRow = blockIdx.y;
     const int blockCol = blockIdx.x;
     
-    // 8 warps arranged as 2×4: 2 rows × 4 cols = 32 rows × 64 cols per block
-    const int warpRowInBlock = warpId / 4;  // 0 or 1
-    const int warpColInBlock = warpId % 4;  // 0, 1, 2, or 3
+    // 4 warps arranged as 2×2: 2 rows × 2 cols = 32 rows × 32 cols per block
+    const int warpRowInBlock = warpId / 2;  // 0 or 1
+    const int warpColInBlock = warpId % 2;  // 0 or 1
     
     const int m = blockRow * 32 + warpRowInBlock * WMMA_M;
-    const int n = blockCol * 64 + warpColInBlock * WMMA_N;
+    const int n = blockCol * 32 + warpColInBlock * WMMA_N;
     
     // Double buffered shared memory for pipelining
     // Buffer 0 and Buffer 1 alternate: load into one while computing from the other
-    __shared__ __half smem_a[2][8][WMMA_M * WMMA_K + 8];  // 2 buffers, 8 warps
-    __shared__ __half smem_b[2][8][WMMA_K * WMMA_N + 8];   // 2 buffers, 8 warps
+    __shared__ __half smem_a[2][4][WMMA_M * WMMA_K + 8];  // 2 buffers, 4 warps
+    __shared__ __half smem_b[2][4][WMMA_K * WMMA_N + 8];   // 2 buffers, 4 warps
     
     // Double buffered fragments
     wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, __half, wmma::row_major> frag_a[2];
@@ -135,7 +136,7 @@ __global__ void op_mm_tensorcore_optimized_kernel(
     }
     
     // Store result
-    __shared__ float smem_c[8][WMMA_M * WMMA_N + 8];
+    __shared__ float smem_c[4][WMMA_M * WMMA_N + 8];
     wmma::store_matrix_sync(smem_c[warpId], frag_c, WMMA_N, wmma::mem_row_major);
     __syncthreads();
     
@@ -164,12 +165,12 @@ void op_mm_tensorcore_optimized(const Tensor<__half>& A, const Tensor<__half>& B
         throw std::runtime_error("TensorCore GEMM requires device tensors");
     }
     
-    // Launch configuration: 8 warps per block (256 threads)
-    // Each block computes 32×64 output (2×4 warps, each 16×16)
-    dim3 blockDim(32, 8);  // 32 threads per warp, 8 warps per block
+    // Launch configuration: 4 warps per block (128 threads) - same as baseline
+    // Each block computes 32×32 output (2×2 warps, each 16×16)
+    dim3 blockDim(32, 4);  // 32 threads per warp, 4 warps per block
     
-    // Grid dimension: each block handles 32 rows × 64 cols
-    dim3 gridDim((C.w + 63) / 64,
+    // Grid dimension: each block handles 32 rows × 32 cols
+    dim3 gridDim((C.w + 31) / 32,
                  (C.h + 31) / 32);
     
     op_mm_tensorcore_optimized_kernel<<<gridDim, blockDim>>>(A, B, C);

@@ -55,3 +55,7 @@ third_party/cutlass/build/**
 test.sh
 test_gpu.sbatch
 profiling_*.log
+
+# ===============================
+# Local documentation (keep private)
+docs/

@@ -46,10 +46,11 @@ echo 'STEP 2: Profile Our TensorCore Kernel (4096x4096x4096)'
 echo '========================================================================'
 
 # Profile our optimized kernel
+# Use exact kernel name from available kernels list
 ncu --set full \
     --kernel-name-base function \
-    --kernel-name 'op_mm_tensorcore.*' \
-    --launch-skip 0 \
+    --kernel-name 'op_mm_tensorcore_optimized_kernel' \
+    --launch-skip 2 \
     --launch-count 1 \
     --target-processes all \
     --export results/profiling/our_kernel_4096.ncu-rep \

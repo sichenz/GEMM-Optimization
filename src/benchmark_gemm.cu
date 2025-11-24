@@ -290,6 +290,9 @@ BenchmarkResult benchmarkTensorCoreGEMM(int M, int N, int K, int warmup_iters, i
     Tensor<__half> B{K, N, true};
     Tensor<float> C{M, N, true};
     
+    // Initialize C to zero (important for correctness)
+    CUDA_OK(cudaMemset(C.rawp, 0, M * N * sizeof(float)));
+    
     // Initialize with random data (convert FP32 to FP16)
     Tensor<float> A_fp32{M, K, true};
     Tensor<float> B_fp32{K, N, true};
@@ -349,6 +352,10 @@ bool validateTensorCoreCorrectness(int M, int N, int K, float tolerance = 1e-3f)
     Tensor<__half> B{K, N, true};
     Tensor<float> C_tensorcore{M, N, true};
     Tensor<float> C_cublas{M, N, true};
+    
+    // Initialize output matrices to zero
+    CUDA_OK(cudaMemset(C_tensorcore.rawp, 0, M * N * sizeof(float)));
+    CUDA_OK(cudaMemset(C_cublas.rawp, 0, M * N * sizeof(float)));
     
     // Initialize with random data
     Tensor<float> A_fp32{M, K, true};

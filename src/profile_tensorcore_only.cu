@@ -42,21 +42,21 @@ int main() {
     curandGenerateUniform(gen, A_fp32.rawp, M * K);
     curandGenerateUniform(gen, B_fp32.rawp, K * N);
     
-    // Convert to FP16
+    // Convert to FP16 using existing conversion kernel
+    __global__ void convert_fp32_to_fp16_kernel(const float* src, __half* dst, int n) {
+        int idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx < n) {
+            dst[idx] = __float2half(src[idx]);
+        }
+    }
+    
     int threads = 256;
     int blocks_A = (M * K + threads - 1) / threads;
     int blocks_B = (K * N + threads - 1) / threads;
     
-    // Simple conversion kernel
-    auto convert = [](float* src, __half* dst, int n) {
-        for (int i = 0; i < n; i++) {
-            dst[i] = __float2half(src[i]);
-        }
-    };
-    
-    // Convert on device (simplified - using elementwise)
-    op_uniform_fill(A, 0.0f, 1.0f);
-    op_uniform_fill(B, 0.0f, 1.0f);
+    convert_fp32_to_fp16_kernel<<<blocks_A, threads>>>(A_fp32.rawp, A.rawp, M * K);
+    convert_fp32_to_fp16_kernel<<<blocks_B, threads>>>(B_fp32.rawp, B.rawp, K * N);
+    CUDA_OK(cudaDeviceSynchronize());
     
     CUDA_OK(cudaMemset(C.rawp, 0, M * N * sizeof(float)));
     CUDA_OK(cudaDeviceSynchronize());

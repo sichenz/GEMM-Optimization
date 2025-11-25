@@ -72,7 +72,7 @@ target_link_libraries(profile_tensorcore PRIVATE
 )
 
 # Profile-only executable for TensorCore kernel
-add_executable(profile_tensorcore src/profile_tensorcore_only.cu)
+add_executable(profile_tensorcore src/profile_tensorcore.cu)
 set_target_properties(profile_tensorcore PROPERTIES CUDA_ARCHITECTURES "70;75")
 target_compile_options(profile_tensorcore PRIVATE
     -Wno-unused-function

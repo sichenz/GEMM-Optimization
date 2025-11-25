@@ -70,16 +70,3 @@ target_link_libraries(profile_tensorcore PRIVATE
     CUDA::cudart
     CUDA::curand
 )
-
-# Profile-only executable for TensorCore kernel
-add_executable(profile_tensorcore src/profile_tensorcore.cu)
-set_target_properties(profile_tensorcore PROPERTIES CUDA_ARCHITECTURES "70;75")
-target_compile_options(profile_tensorcore PRIVATE
-    -Wno-unused-function
-    --expt-relaxed-constexpr
-    --extended-lambda
-)
-target_link_libraries(profile_tensorcore PRIVATE 
-    CUDA::cudart
-    CUDA::curand
-)

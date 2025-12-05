@@ -8,6 +8,12 @@
 #include "utils/check_error.cuh"
 #include "ops/op_mm_tensorcore_optimized.cuh"
 
+// Convert to FP16 using existing kernel
+__global__ void convert_fp32_to_fp16_kernel(const float* src, __half* dst, int n) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < n) dst[idx] = __float2half(src[idx]);
+}
+
 int main() {
     int M = 4096, N = 4096, K = 4096;
     
@@ -26,12 +32,7 @@ int main() {
     curandGenerateUniform(gen, A_fp32.rawp, M * K);
     curandGenerateUniform(gen, B_fp32.rawp, K * N);
     
-    // Convert to FP16 using existing kernel
-    __global__ void convert_fp32_to_fp16_kernel(const float* src, __half* dst, int n) {
-        int idx = blockIdx.x * blockDim.x + threadIdx.x;
-        if (idx < n) dst[idx] = __float2half(src[idx]);
-    }
-    
+    // Convert to FP16
     int threads = 256;
     int blocks_A = (M * K + threads - 1) / threads;
     int blocks_B = (K * N + threads - 1) / threads;

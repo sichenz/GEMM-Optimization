@@ -13,8 +13,8 @@
 #include "ops/op_mm.cuh"
 #include "ops/op_mm_tensorcore.cuh"  // Must be included first (defines ensure_tc_mm_shape_device)
 #include "ops/op_mm_tensorcore_optimized.cuh"
-#include "ops/op_mm_tensorcore_3stage.cuh"
 #include "ops/op_mm_tensorcore_large_tile.cuh"
+// Note: op_mm_tensorcore_3stage.cuh disabled due to performance issues
 #include "ops/op_elemwise.cuh"
 
 // Phase 1.1.3: Set up benchmarking framework
@@ -758,28 +758,10 @@ int main() {
             }
             
             // Phase 2 Optimization: Benchmark 3-stage pipelined TensorCore kernel
-            // DISABLED: Currently has performance bug (54% slower than baseline)
-            // TODO: Fix 3-stage pipeline logic
-            /*
-            try {
-                auto result = benchmarkTensorCore3StageGEMM(M, N, K, warmup_iters, bench_iters);
-                printResult(result, std::cout);
-                all_results.push_back(result);
-            } catch (const std::exception& e) {
-                std::cerr << "3-Stage TensorCore GEMM failed: " << e.what() << std::endl;
-            }
-            */
+            // DISABLED: Performance bug (54% slower than baseline) - pipeline logic needs fixing
+            // Keeping code for future reference but not benchmarking
             
-            // Phase 2 Optimization: Benchmark large tile TensorCore kernel (64×64 tiles, 8 warps)
-            try {
-                auto result = benchmarkTensorCoreLargeTileGEMM(M, N, K, warmup_iters, bench_iters);
-                printResult(result, std::cout);
-                all_results.push_back(result);
-            } catch (const std::exception& e) {
-                std::cerr << "Large Tile TensorCore GEMM failed: " << e.what() << std::endl;
-            }
-            
-            // Phase 2 Optimization: Benchmark large tile TensorCore kernel (64×64 tiles, 8 warps)
+            // Phase 2 Optimization: Benchmark large tile TensorCore kernel (64×64 tiles, 4 warps with double buffering)
             try {
                 auto result = benchmarkTensorCoreLargeTileGEMM(M, N, K, warmup_iters, bench_iters);
                 printResult(result, std::cout);

@@ -758,6 +758,9 @@ int main() {
             }
             
             // Phase 2 Optimization: Benchmark 3-stage pipelined TensorCore kernel
+            // DISABLED: Currently has performance bug (54% slower than baseline)
+            // TODO: Fix 3-stage pipeline logic
+            /*
             try {
                 auto result = benchmarkTensorCore3StageGEMM(M, N, K, warmup_iters, bench_iters);
                 printResult(result, std::cout);
@@ -765,6 +768,7 @@ int main() {
             } catch (const std::exception& e) {
                 std::cerr << "3-Stage TensorCore GEMM failed: " << e.what() << std::endl;
             }
+            */
             
             // Phase 2 Optimization: Benchmark large tile TensorCore kernel (64×64 tiles, 8 warps)
             try {

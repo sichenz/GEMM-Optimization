@@ -23,43 +23,46 @@ using namespace nvcuda;
 // Include it if needed, or rely on it being included before this file
 
 // Large Tile TensorCore GEMM Kernel
-// Uses 8 warps per block (256 threads) for 64×64 output tiles
-// 8 warps arranged as 2×4: 2 rows × 4 cols = 32 rows × 64 cols per block
+// Uses 4 warps per block (128 threads) for 64×64 output tiles
+// 4 warps arranged as 1×4: 1 row × 4 cols = 16 rows × 64 cols per block
 // Each warp computes 16×16 output
+// This allows double buffering while staying within shared memory limits
 template <typename T>
 __global__ void op_mm_tensorcore_large_tile_kernel(
     const Tensor<__half> A,
     const Tensor<__half> B,
     Tensor<T> C)
 {
-    const int warpId = threadIdx.y;  // 0-7
+    const int warpId = threadIdx.y;  // 0-3
     const int laneId = threadIdx.x;  // 0-31
     
     const int blockRow = blockIdx.y;
     const int blockCol = blockIdx.x;
     
-    // 8 warps arranged as 2×4: 2 rows × 4 cols = 32 rows × 64 cols per block
-    const int warpRowInBlock = warpId / 4;  // 0 or 1
-    const int warpColInBlock = warpId % 4;  // 0, 1, 2, or 3
+    // 4 warps arranged as 1×4: 1 row × 4 cols = 16 rows × 64 cols per block
+    const int warpRowInBlock = 0;  // All warps in same row
+    const int warpColInBlock = warpId;  // 0, 1, 2, or 3
     
-    const int m = blockRow * 32 + warpRowInBlock * WMMA_M;
+    const int m = blockRow * 16 + warpRowInBlock * WMMA_M;
     const int n = blockCol * 64 + warpColInBlock * WMMA_N;
     
-    // Shared memory for 8 warps
-    // Using single buffer to avoid exceeding 48KB shared memory limit
-    // 8 warps × 1 buffer × (16×16 + 8) × 2 bytes = ~8.4KB per matrix = ~16.8KB total (within limit)
-    __shared__ __half smem_a[8][WMMA_M * WMMA_K + 8];  // 1 buffer, 8 warps
-    __shared__ __half smem_b[8][WMMA_K * WMMA_N + 8];   // 1 buffer, 8 warps
+    // Shared memory for 4 warps with double buffering
+    // 4 warps × 2 buffers × (16×16 + 8) × 2 bytes = ~8.4KB per matrix = ~16.8KB total (within 48KB limit)
+    __shared__ __half smem_a[2][4][WMMA_M * WMMA_K + 8];  // 2 buffers, 4 warps
+    __shared__ __half smem_b[2][4][WMMA_K * WMMA_N + 8];   // 2 buffers, 4 warps
     
-    // Single buffer fragments (no double buffering to save shared memory)
-    wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, __half, wmma::row_major> frag_a;
-    wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, __half, wmma::col_major> frag_b;
+    // Double buffered fragments
+    wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, __half, wmma::row_major> frag_a[2];
+    wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, __half, wmma::col_major> frag_b[2];
     wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> frag_c;
     
     wmma::fill_fragment(frag_c, 0.0f);
     
-    // Main loop: Load, compute, repeat (no pipelining to save shared memory)
-    for (int k = 0; k < A.w; k += WMMA_K) {
+    // Load first tile
+    int k = 0;
+    int buf_idx = 0;
+    
+    if (k < A.w) {
         // Load A tile
         #pragma unroll
         for (int load_idx = laneId; load_idx < WMMA_M * WMMA_K; load_idx += 32) {
@@ -67,7 +70,7 @@ __global__ void op_mm_tensorcore_large_tile_kernel(
             int j = load_idx % WMMA_K;
             int row = m + i;
             int col = k + j;
-            smem_a[warpId][load_idx] = (row < A.h && col < A.w) ? 
+            smem_a[buf_idx][warpId][load_idx] = (row < A.h && col < A.w) ? 
                 Index(A, row, col) : __float2half(0.0f);
         }
         
@@ -78,24 +81,63 @@ __global__ void op_mm_tensorcore_large_tile_kernel(
             int i = load_idx % WMMA_K;
             int row = k + i;
             int col = n + j;
-            smem_b[warpId][j * WMMA_K + i] = (row < B.h && col < B.w) ? 
+            smem_b[buf_idx][warpId][j * WMMA_K + i] = (row < B.h && col < B.w) ? 
+                Index(B, row, col) : __float2half(0.0f);
+        }
+    }
+    
+    __syncthreads();
+    
+    // Load first fragments
+    if (k < A.w) {
+        wmma::load_matrix_sync(frag_a[buf_idx], smem_a[buf_idx][warpId], WMMA_K);
+        wmma::load_matrix_sync(frag_b[buf_idx], smem_b[buf_idx][warpId], WMMA_K);
+    }
+    
+    // Main loop with double buffering
+    for (k = WMMA_K; k < A.w; k += WMMA_K) {
+        int next_buf = 1 - buf_idx;
+        
+        // Load next tile
+        #pragma unroll
+        for (int load_idx = laneId; load_idx < WMMA_M * WMMA_K; load_idx += 32) {
+            int i = load_idx / WMMA_K;
+            int j = load_idx % WMMA_K;
+            int row = m + i;
+            int col = k + j;
+            smem_a[next_buf][warpId][load_idx] = (row < A.h && col < A.w) ? 
+                Index(A, row, col) : __float2half(0.0f);
+        }
+        
+        #pragma unroll
+        for (int load_idx = laneId; load_idx < WMMA_K * WMMA_N; load_idx += 32) {
+            int j = load_idx / WMMA_K;
+            int i = load_idx % WMMA_K;
+            int row = k + i;
+            int col = n + j;
+            smem_b[next_buf][warpId][j * WMMA_K + i] = (row < B.h && col < B.w) ? 
                 Index(B, row, col) : __float2half(0.0f);
         }
         
-        __syncthreads();
-        
-        // Load fragments
-        wmma::load_matrix_sync(frag_a, smem_a[warpId], WMMA_K);
-        wmma::load_matrix_sync(frag_b, smem_b[warpId], WMMA_K);
-        
-        // Compute
-        wmma::mma_sync(frag_c, frag_a, frag_b, frag_c);
+        // Compute with current buffer
+        wmma::mma_sync(frag_c, frag_a[buf_idx], frag_b[buf_idx], frag_c);
         
         __syncthreads();
+        
+        // Load fragments from next buffer
+        wmma::load_matrix_sync(frag_a[next_buf], smem_a[next_buf][warpId], WMMA_K);
+        wmma::load_matrix_sync(frag_b[next_buf], smem_b[next_buf][warpId], WMMA_K);
+        
+        buf_idx = next_buf;
+    }
+    
+    // Final computation
+    if (A.w > 0) {
+        wmma::mma_sync(frag_c, frag_a[buf_idx], frag_b[buf_idx], frag_c);
     }
     
     // Store result
-    __shared__ float smem_c[8][WMMA_M * WMMA_N + 8];
+    __shared__ float smem_c[4][WMMA_M * WMMA_N + 8];
     wmma::store_matrix_sync(smem_c[warpId], frag_c, WMMA_N, wmma::mem_row_major);
     __syncthreads();
     
@@ -124,13 +166,13 @@ void op_mm_tensorcore_large_tile(const Tensor<__half>& A, const Tensor<__half>& 
         throw std::runtime_error("TensorCore GEMM requires device tensors");
     }
     
-    // Launch configuration: 8 warps per block (256 threads)
-    // Each block computes 32×64 output (2×4 warps, each 16×16)
-    dim3 blockDim(32, 8);  // 32 threads per warp, 8 warps per block
+    // Launch configuration: 4 warps per block (128 threads)
+    // Each block computes 16×64 output (1×4 warps, each 16×16)
+    dim3 blockDim(32, 4);  // 32 threads per warp, 4 warps per block
     
-    // Grid dimension: each block handles 32 rows × 64 cols
+    // Grid dimension: each block handles 16 rows × 64 cols
     dim3 gridDim((C.w + 63) / 64,
-                 (C.h + 31) / 32);
+                 (C.h + 15) / 16);
     
     op_mm_tensorcore_large_tile_kernel<<<gridDim, blockDim>>>(A, B, C);
     

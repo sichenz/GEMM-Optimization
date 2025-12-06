@@ -18,17 +18,8 @@ using namespace nvcuda;
 #define WMMA_N 16
 #define WMMA_K 16
 
-// Shape validation for TensorCore GEMM
-template <typename AT, typename BT, typename OT>
-inline void ensure_tc_mm_shape_device(const Tensor<AT> &a, const Tensor<BT> &b, const Tensor<OT> &out)
-{
-    if (a.h != out.h || b.w != out.w || a.w != b.h)
-        throw std::runtime_error("a,b,out tensor shape mismatch a:" +
-            a.repr() + ", b:" + b.repr() + ", out:" + out.repr());
-    if (a.on_device != b.on_device || a.on_device != out.on_device)
-        throw std::runtime_error("a,b,out tensor device mismatch a:" +
-            a.repr() + ", b:" + b.repr() + ", out:" + out.repr());
-}
+// Note: ensure_tc_mm_shape_device is defined in op_mm_tensorcore.cuh
+// Include it if needed, or rely on it being included before this file
 
 // 3-Stage Pipelined TensorCore GEMM Kernel
 // Uses 4 warps per block (128 threads) for 32×32 output tiles

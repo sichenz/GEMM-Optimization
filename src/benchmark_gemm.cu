@@ -11,7 +11,7 @@
 #include "utils/tensor.cuh"
 #include "utils/check_error.cuh"
 #include "ops/op_mm.cuh"
-#include "ops/op_mm_tensorcore.cuh"
+#include "ops/op_mm_tensorcore.cuh"  // Must be included first (defines ensure_tc_mm_shape_device)
 #include "ops/op_mm_tensorcore_optimized.cuh"
 #include "ops/op_mm_tensorcore_3stage.cuh"
 #include "ops/op_mm_tensorcore_large_tile.cuh"

@@ -34,7 +34,7 @@ using namespace nvcuda;
 
 // Helper function to validate matrix dimensions for TensorCore GEMM
 template <typename AT, typename BT, typename OT>
-static void ensure_tc_mm_shape_device(const Tensor<AT> &a, const Tensor<BT> &b, const Tensor<OT> &out)
+inline void ensure_tc_mm_shape_device(const Tensor<AT> &a, const Tensor<BT> &b, const Tensor<OT> &out)
 {
     if (a.h != out.h || b.w != out.w || a.w != b.h)
         throw std::runtime_error("a,b,out tensor shape mismatch a:" +

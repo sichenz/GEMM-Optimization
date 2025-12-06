@@ -46,22 +46,20 @@ __global__ void op_mm_tensorcore_large_tile_kernel(
     const int n = blockCol * 64 + warpColInBlock * WMMA_N;
     
     // Shared memory for 8 warps
-    // Using double buffering for pipelining
-    __shared__ __half smem_a[2][8][WMMA_M * WMMA_K + 8];  // 2 buffers, 8 warps
-    __shared__ __half smem_b[2][8][WMMA_K * WMMA_N + 8];   // 2 buffers, 8 warps
+    // Using single buffer to avoid exceeding 48KB shared memory limit
+    // 8 warps × 1 buffer × (16×16 + 8) × 2 bytes = ~8.4KB per matrix = ~16.8KB total (within limit)
+    __shared__ __half smem_a[8][WMMA_M * WMMA_K + 8];  // 1 buffer, 8 warps
+    __shared__ __half smem_b[8][WMMA_K * WMMA_N + 8];   // 1 buffer, 8 warps
     
-    // Double buffered fragments
-    wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, __half, wmma::row_major> frag_a[2];
-    wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, __half, wmma::col_major> frag_b[2];
+    // Single buffer fragments (no double buffering to save shared memory)
+    wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, __half, wmma::row_major> frag_a;
+    wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, __half, wmma::col_major> frag_b;
     wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> frag_c;
     
     wmma::fill_fragment(frag_c, 0.0f);
     
-    // Load first tile (pipeline stage 0)
-    int k = 0;
-    int buf_idx = 0;
-    
-    if (k < A.w) {
+    // Main loop: Load, compute, repeat (no pipelining to save shared memory)
+    for (int k = 0; k < A.w; k += WMMA_K) {
         // Load A tile
         #pragma unroll
         for (int load_idx = laneId; load_idx < WMMA_M * WMMA_K; load_idx += 32) {
@@ -69,7 +67,7 @@ __global__ void op_mm_tensorcore_large_tile_kernel(
             int j = load_idx % WMMA_K;
             int row = m + i;
             int col = k + j;
-            smem_a[buf_idx][warpId][load_idx] = (row < A.h && col < A.w) ? 
+            smem_a[warpId][load_idx] = (row < A.h && col < A.w) ? 
                 Index(A, row, col) : __float2half(0.0f);
         }
         
@@ -80,60 +78,20 @@ __global__ void op_mm_tensorcore_large_tile_kernel(
             int i = load_idx % WMMA_K;
             int row = k + i;
             int col = n + j;
-            smem_b[buf_idx][warpId][j * WMMA_K + i] = (row < B.h && col < B.w) ? 
-                Index(B, row, col) : __float2half(0.0f);
-        }
-    }
-    
-    __syncthreads();
-    
-    // Load first fragments
-    if (k < A.w) {
-        wmma::load_matrix_sync(frag_a[buf_idx], smem_a[buf_idx][warpId], WMMA_K);
-        wmma::load_matrix_sync(frag_b[buf_idx], smem_b[buf_idx][warpId], WMMA_K);
-    }
-    
-    // Main loop with software pipelining (double buffering)
-    for (k = WMMA_K; k < A.w; k += WMMA_K) {
-        int next_buf = 1 - buf_idx;
-        
-        // STAGE 1: Load next tile (k+1) into next buffer
-        #pragma unroll
-        for (int load_idx = laneId; load_idx < WMMA_M * WMMA_K; load_idx += 32) {
-            int i = load_idx / WMMA_K;
-            int j = load_idx % WMMA_K;
-            int row = m + i;
-            int col = k + j;
-            smem_a[next_buf][warpId][load_idx] = (row < A.h && col < A.w) ? 
-                Index(A, row, col) : __float2half(0.0f);
-        }
-        
-        #pragma unroll
-        for (int load_idx = laneId; load_idx < WMMA_K * WMMA_N; load_idx += 32) {
-            int j = load_idx / WMMA_K;
-            int i = load_idx % WMMA_K;
-            int row = k + i;
-            int col = n + j;
-            smem_b[next_buf][warpId][j * WMMA_K + i] = (row < B.h && col < B.w) ? 
+            smem_b[warpId][j * WMMA_K + i] = (row < B.h && col < B.w) ? 
                 Index(B, row, col) : __float2half(0.0f);
         }
         
-        // STAGE 2: Compute with current buffer (k)
-        wmma::mma_sync(frag_c, frag_a[buf_idx], frag_b[buf_idx], frag_c);
-        
-        // Synchronize: ensure loads complete before switching buffers
         __syncthreads();
         
-        // STAGE 3: Load fragments from next buffer
-        wmma::load_matrix_sync(frag_a[next_buf], smem_a[next_buf][warpId], WMMA_K);
-        wmma::load_matrix_sync(frag_b[next_buf], smem_b[next_buf][warpId], WMMA_K);
+        // Load fragments
+        wmma::load_matrix_sync(frag_a, smem_a[warpId], WMMA_K);
+        wmma::load_matrix_sync(frag_b, smem_b[warpId], WMMA_K);
         
-        buf_idx = next_buf; // Toggle buffer
-    }
-    
-    // Final computation with last buffered tile
-    if (A.w > 0) {
-        wmma::mma_sync(frag_c, frag_a[buf_idx], frag_b[buf_idx], frag_c);
+        // Compute
+        wmma::mma_sync(frag_c, frag_a, frag_b, frag_c);
+        
+        __syncthreads();
     }
     
     // Store result

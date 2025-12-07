@@ -21,14 +21,14 @@ def load_benchmark_results(csv_path):
         reader = csv.DictReader(f)
         for row in reader:
             results.append({
-                'kernel_name': row['kernel_name'],
-                'dtype': row['dtype'],
+                'kernel_name': row['Kernel'],
+                'dtype': row['DType'],
                 'M': int(row['M']),
                 'N': int(row['N']),
                 'K': int(row['K']),
-                'time_ms': float(row['time_ms']),
-                'gflops': float(row['gflops']),
-                'bandwidth_gb_s': float(row['bandwidth_gb_s'])
+                'time_ms': float(row['Time_ms']),
+                'gflops': float(row['GFLOPS']),
+                'bandwidth_gb_s': float(row['Bandwidth_GB_s'])
             })
     return results
 

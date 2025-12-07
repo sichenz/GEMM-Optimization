@@ -405,6 +405,9 @@ BenchmarkResult benchmarkTensorCoreOptimizedGEMM(int M, int N, int K, int warmup
 }
 
 // Phase 2 Optimization: Benchmark 3-stage pipelined TensorCore GEMM
+// DISABLED: Performance bug (54% slower than baseline) - pipeline logic needs fixing
+// Keeping function signature for reference but implementation disabled
+/*
 BenchmarkResult benchmarkTensorCore3StageGEMM(int M, int N, int K, int warmup_iters, int bench_iters) {
     // Allocate FP16 input matrices and FP32 output
     Tensor<__half> A{M, K, true};
@@ -462,6 +465,7 @@ BenchmarkResult benchmarkTensorCore3StageGEMM(int M, int N, int K, int warmup_it
     
     return result;
 }
+*/
 
 // Phase 2 Optimization: Benchmark large tile TensorCore GEMM (64×64 tiles, 8 warps)
 BenchmarkResult benchmarkTensorCoreLargeTileGEMM(int M, int N, int K, int warmup_iters, int bench_iters) {

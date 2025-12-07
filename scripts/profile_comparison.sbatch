@@ -16,9 +16,8 @@ module purge
 mkdir -p results/profiling
 mkdir -p logs
 
-echo "========================================================================"
-echo "PHASE 3: CUTLASS vs Our Kernel Profiling Comparison"
-echo "========================================================================"
+echo "Phase 3: Profiling Comparison"
+echo ""
 date
 echo ""
 
@@ -30,23 +29,29 @@ source /ext3/env.sh
 conda activate test
 cd /scratch/$USER/GEMM-Optimization
 
-echo '========================================================================'
-echo 'STEP 1: Build Project'
-echo '========================================================================'
+echo 'Step 1: Build Project'
+echo ''
 
+# Clean and rebuild
+rm -rf build
+mkdir -p build
 cd build
+
+cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j8 benchmark_gemm
 cd ..
 
-echo '✓ Build complete'
+if [ \$? -ne 0 ]; then
+    echo 'Build failed!'
+    exit 1
+fi
+echo 'Build complete'
 echo ''
 
-echo '========================================================================'
-echo 'STEP 2: Profile Our TensorCore Kernel (4096x4096x4096)'
-echo '========================================================================'
+echo 'Step 2: Profile Our TensorCore Kernel'
+echo ''
 
 # Profile our optimized kernel
-# Use exact kernel name from available kernels list
 ncu --set full \
     --kernel-name-base function \
     --kernel-name 'op_mm_tensorcore_optimized_kernel' \
@@ -56,14 +61,12 @@ ncu --set full \
     --export results/profiling/our_kernel_4096.ncu-rep \
     ./build/benchmark_gemm 2>&1 | tee logs/profile_our_kernel.log
 
-echo '✓ Our kernel profiled'
+echo 'Our kernel profiled'
 echo ''
 
-echo '========================================================================'
-echo 'STEP 3: Profile CUTLASS (if available)'
-echo '========================================================================'
+echo 'Step 3: Profile CUTLASS (if available)'
+echo ''
 
-# Check if CUTLASS profiler exists
 if [ -f third_party/cutlass/build/tools/profiler/cutlass_profiler ]; then
     echo 'Running CUTLASS profiler...'
     ./third_party/cutlass/build/tools/profiler/cutlass_profiler \
@@ -75,30 +78,21 @@ if [ -f third_party/cutlass/build/tools/profiler/cutlass_profiler ]; then
         --m=4096 --n=4096 --k=4096 \
         --profiling-iterations=10 \
         > results/profiling/cutlass_4096.txt 2>&1
-    echo '✓ CUTLASS profiled'
+    echo 'CUTLASS profiled'
 else
-    echo '⚠ CUTLASS profiler not found, skipping'
+    echo 'CUTLASS profiler not found, skipping'
 fi
 
 echo ''
-echo '========================================================================'
-echo 'PROFILING COMPLETE'
-echo '========================================================================'
+echo 'Profiling Complete'
 echo ''
 echo 'Generated files:'
-echo '  • results/profiling/our_kernel_4096.ncu-rep'
-echo '  • results/profiling/cutlass_4096.txt (if available)'
-echo ''
-echo 'To analyze:'
-echo '  1. Download .ncu-rep file to laptop'
-echo '  2. Open with: ncu-ui results/profiling/our_kernel_4096.ncu-rep'
-echo '  3. Compare metrics with CUTLASS'
+echo '  results/profiling/our_kernel_4096.ncu-rep'
+echo '  results/profiling/cutlass_4096.txt (if available)'
 echo ''
 "
 
 echo ""
-echo "========================================================================"
-echo "PROFILING JOB COMPLETED!"
-echo "========================================================================"
+echo "Profiling job completed!"
 date
 

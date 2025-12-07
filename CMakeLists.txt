@@ -58,15 +58,5 @@ target_link_libraries(cublas_bench PRIVATE CUDA::cublas CUDA::cudart)
 target_compile_options(cublas_bench PRIVATE -O3 --expt-relaxed-constexpr)
 target_compile_definitions(cublas_bench PRIVATE -D_FORCE_INLINES)
 
-# Profiling test program
-add_executable(profile_tensorcore src/profile_tensorcore.cu)
-set_target_properties(profile_tensorcore PROPERTIES CUDA_ARCHITECTURES "70;75")
-target_compile_options(profile_tensorcore PRIVATE
-    -Wno-unused-function
-    --expt-relaxed-constexpr
-    --extended-lambda
-)
-target_link_libraries(profile_tensorcore PRIVATE 
-    CUDA::cudart
-    CUDA::curand
-)
+# Profiling test program (removed - not needed for final submission)
+# profile_tensorcore was used for debugging, now integrated into benchmark_gemm

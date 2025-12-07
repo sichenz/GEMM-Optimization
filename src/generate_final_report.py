@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """
-Phase 4: Final Comprehensive Analysis and Report Generation
-Generates final performance summary, comparisons, and project report
-Uses only standard library (no pandas required)
+Generate final performance report from benchmark results
+Uses only standard library (no pandas)
 """
 
 import os
@@ -11,7 +10,7 @@ from pathlib import Path
 from collections import defaultdict
 
 def load_benchmark_results(csv_path):
-    """Load benchmark results from CSV"""
+    """Load results from CSV file"""
     if not os.path.exists(csv_path):
         print(f"Error: {csv_path} not found")
         return None
@@ -33,7 +32,7 @@ def load_benchmark_results(csv_path):
     return results
 
 def generate_performance_summary(results, output_file):
-    """Generate comprehensive performance summary"""
+    """Generate performance summary report"""
     
     # Filter for key square matrix sizes
     key_sizes = [1024, 2048, 4096, 8192]
@@ -105,14 +104,14 @@ def generate_performance_summary(results, output_file):
             f.write('\n' + '=' * 80 + '\n')
             f.write(f"Average Efficiency of Our TensorCore Kernels: {avg_efficiency:.2f}%\n")
             f.write(f"Target: 40-60% of cuBLAS TensorCore\n")
-            f.write(f"Status: {'✓ ACHIEVED' if avg_efficiency >= 40 else '✗ NOT ACHIEVED'}\n")
+            f.write(f"Status: {'ACHIEVED' if avg_efficiency >= 40 else 'NOT ACHIEVED'}\n")
         
         f.write('\n' + '=' * 80 + '\n')
     
-    print(f"✓ Performance summary written to {output_file}")
+    print(f"Performance summary written to {output_file}")
 
 def generate_comparison_table(results, output_file):
-    """Generate comparison table for report"""
+    """Generate comparison table"""
     
     # Filter for 4096×4096×4096
     results_4096 = [r for r in results if r['M'] == 4096 and r['N'] == 4096 and r['K'] == 4096]
@@ -149,13 +148,10 @@ def generate_comparison_table(results, output_file):
         
         f.write('\n' + '=' * 80 + '\n')
     
-    print(f"✓ Comparison table written to {output_file}")
+    print(f"Comparison table written to {output_file}")
 
 def main():
-    """Main function"""
-    print("=" * 80)
-    print("Phase 4: Final Report Generation")
-    print("=" * 80)
+    print("Final Report Generation")
     print()
     
     # Paths
@@ -183,9 +179,7 @@ def main():
     generate_comparison_table(results, final_dir / "comparison_table.txt")
     print()
     
-    print("=" * 80)
-    print("Final report generation complete!")
-    print("=" * 80)
+    print("Report generation complete!")
     print(f"\nGenerated files:")
     print(f"  • {final_dir / 'performance_summary.txt'}")
     print(f"  • {final_dir / 'comparison_table.txt'}")

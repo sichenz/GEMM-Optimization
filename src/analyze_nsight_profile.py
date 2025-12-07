@@ -31,10 +31,10 @@ def parse_ncu_report(ncu_file):
             # Try alternative: export to CSV
             result = subprocess.run(
                 ['ncu', '--import', str(ncu_file), '--page', 'summary', '--csv'],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
         
         if result.returncode != 0:
             print(f"Warning: Could not parse {ncu_file}")
@@ -51,7 +51,7 @@ def parse_ncu_report(ncu_file):
             if 'throughput' in line.lower() or 'occupancy' in line.lower() or 'duration' in line.lower():
                 # Simple parsing - adjust based on actual ncu output format
                 parts = line.split()
-                if len(parts) >= 2:
+            if len(parts) >= 2:
                     try:
                         # Try to extract numeric values
                         for part in parts:
@@ -184,17 +184,17 @@ def generate_profiling_report(profile_dir, output_file):
         
         f.write("Bottleneck Analysis:\n")
         if avg_occupancy < 50:
-            f.write("  ⚠ Low occupancy detected\n")
+            f.write("  Warning: Low occupancy detected\n")
             f.write("    → Reduce register usage or shared memory per block\n")
             f.write("    → Increase threads per block\n\n")
         
         if avg_mem_throughput < 50:
-            f.write("  ⚠ Low memory throughput\n")
+            f.write("  Warning: Low memory throughput\n")
             f.write("    → Improve memory coalescing\n")
             f.write("    → Reduce global memory accesses via shared memory\n\n")
         
         if avg_compute < 50:
-            f.write("  ⚠ Low compute throughput\n")
+            f.write("  Warning: Low compute throughput\n")
             f.write("    → Increase arithmetic intensity\n")
             f.write("    → Better utilize FMA units\n\n")
         
@@ -210,13 +210,13 @@ def generate_profiling_report(profile_dir, output_file):
             issues.append(("Compute Utilization", 3))
         
         if not issues:
-            f.write("  ✓ Kernel shows good overall performance\n")
+            f.write("  Kernel shows good overall performance\n")
             f.write("  • Consider advanced optimizations (vectorization, async copies)\n")
         else:
             for issue, priority in sorted(issues, key=lambda x: x[1]):
                 f.write(f"  {priority}. Address {issue}\n")
     
-    print(f"✓ Profiling report saved to {output_file}")
+    print(f"Profiling report saved to {output_file}")
 
 def main():
     print("\n" + "=" * 60)
@@ -235,7 +235,7 @@ def main():
     generate_profiling_report(profile_dir, output_file)
     
     print("\n" + "=" * 60)
-    print("✓ Analysis complete!")
+    print("Analysis complete!")
     print("=" * 60)
     print(f"\nReport: {output_file}")
     print("\nFor detailed analysis, open in Nsight Compute UI:")

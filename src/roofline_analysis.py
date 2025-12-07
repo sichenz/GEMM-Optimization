@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-# Phase 1.3: Performance Analysis and Visualization
-# This script generates the roofline model and performance comparison plots
-# The roofline model helps us understand if kernels are memory-bound or compute-bound
+# Generate roofline plots and performance analysis
+# Roofline model shows if kernels are memory-bound or compute-bound
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -10,8 +9,7 @@ import sys
 import re
 
 def parse_gpu_specs_file(filename):
-    """Parse GPU specs from the generated file
-    Reads peak TFLOPS and bandwidth from gpu_specs.txt for roofline calculations"""
+    """Parse GPU specs from file"""
     try:
         with open(filename, 'r') as f:
             content = f.read()
@@ -47,34 +45,18 @@ def load_benchmark_data(filename):
         sys.exit(1)
 
 def calculate_arithmetic_intensity(M, N, K, bytes_per_element):
-    """
-    Calculate arithmetic intensity for GEMM
-    AI = FLOPS / Bytes
-    
-    Arithmetic Intensity tells us if a workload is memory-bound or compute-bound:
-    - High AI (> ridge point): compute-bound (limited by FLOPS)
-    - Low AI (< ridge point): memory-bound (limited by bandwidth)
-    
-    For GEMM:
-    - FLOPS = 2*M*N*K (each element of C requires K multiply-adds = 2 ops)
-    - Bytes = (M*K + K*N + M*N) * bytes_per_element (read A, read B, write C)
+    """Calculate arithmetic intensity: FLOPS / Bytes
+    High AI = compute-bound, Low AI = memory-bound
+    For GEMM: FLOPS = 2*M*N*K, Bytes = (M*K + K*N + M*N) * bytes_per_element
     """
     flops = 2.0 * M * N * K
     bytes_transferred = (M * K + K * N + M * N) * bytes_per_element
     return flops / bytes_transferred
 
 def plot_roofline(df, gpu_specs, output_file):
-    """Create roofline plot with custom visualization
-    
-    The roofline model shows:
-    - X-axis: Arithmetic Intensity (FLOPS/Byte)
-    - Y-axis: Performance (GFLOPS)
-    - Roofline curve: Theoretical peak performance at each AI
-      - Left side (low AI): Memory-bound region (slope = bandwidth)
-      - Right side (high AI): Compute-bound region (flat = peak FLOPS)
-    - Points: Actual kernel performance
-    
-    Kernels below the roofline have optimization opportunities!
+    """Create roofline plot
+    X-axis: Arithmetic Intensity, Y-axis: Performance
+    Left side = memory-bound, Right side = compute-bound
     """
     # Custom figure with different style
     fig, ax = plt.subplots(figsize=(12, 8))
@@ -284,9 +266,7 @@ def plot_performance_comparison(df, output_file):
     plt.close()
 
 def generate_analysis_report(df, gpu_specs, output_file):
-    """Generate detailed analysis report
-    Phase 1.3 Deliverable: Performance comparison report
-    Includes efficiency calculations and gap analysis"""
+    """Generate analysis report with efficiency calculations"""
     with open(output_file, 'w') as f:
         f.write("=" * 80 + "\n")
         f.write("GEMM PERFORMANCE ANALYSIS REPORT\n")

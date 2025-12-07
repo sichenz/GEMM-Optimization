@@ -17,15 +17,14 @@
 // Note: op_mm_tensorcore_3stage.cuh disabled due to performance issues
 #include "ops/op_elemwise.cuh"
 
-// Phase 1.1.3: Set up benchmarking framework
-// This file implements the timing harness for measuring FLOPS, memory bandwidth, and latency
-// We benchmark both our Lab-1 kernel and cuBLAS baselines
+// Benchmarking framework for measuring GEMM performance
+// This file handles timing, running benchmarks, and validating correctness
+// I'm using CUDA events for timing since they're more accurate than CPU timers
 
 unsigned long long randgen_seed = 12345;
 
-// Timing utility - uses CUDA events for accurate GPU timing
-// CUDA events are more accurate than CPU timers because they measure GPU execution time
-// directly, accounting for async execution and avoiding CPU-GPU synchronization overhead
+// CUDA event timer - more accurate than CPU timers
+// Events measure GPU time directly, which is important since GPU execution is async
 class CudaTimer {
 public:
     CudaTimer() {
@@ -54,7 +53,7 @@ private:
     cudaEvent_t start_, stop_;
 };
 
-// Performance metrics structure - stores results for each benchmark run
+// Structure to store benchmark results
 struct BenchmarkResult {
     int M, N, K;              // Matrix dimensions
     float time_ms;            // Execution time in milliseconds
@@ -65,54 +64,48 @@ struct BenchmarkResult {
     std::string dtype;        // Data type (FP32 or FP16)
 };
 
-// Calculate GFLOPS (Giga Floating Point Operations Per Second)
-// GEMM operation count: 2*M*N*K (each element of C requires K multiply-adds = 2 ops)
+// Calculate GFLOPS - total operations is 2*M*N*K (multiply-add counts as 2 ops)
 double calculateGFLOPS(int M, int N, int K, float time_ms) {
     double operations = 2.0 * M * N * K;  // Total FLOPS
     double gflops = (operations / 1e9) / (time_ms / 1000.0);  // Convert to GFLOPS
     return gflops;
 }
 
-// Calculate memory bandwidth utilization
-// Total bytes transferred = A matrix + B matrix + C matrix (read A, read B, write C)
+// Calculate memory bandwidth - total bytes = A + B + C (read A, read B, write C)
 double calculateBandwidth(int M, int N, int K, float time_ms, int bytes_per_element) {
     double bytes = (double)(M * K + K * N + M * N) * bytes_per_element;
     double bandwidth = (bytes / 1e9) / (time_ms / 1000.0);  // GB/s
     return bandwidth;
 }
 
-// Phase 1.1.3: Benchmark Lab-1 tiled GEMM implementation
-// This measures our baseline kernel performance across different matrix sizes
+// Benchmark the Lab-1 tiled GEMM kernel
 BenchmarkResult benchmarkLab1GEMM(int M, int N, int K, int warmup_iters, int bench_iters) {
-    // Allocate matrices on GPU (on_device=true)
+    // Allocate matrices on GPU
     Tensor<float> A{M, K, true};
     Tensor<float> B{K, N, true};
     Tensor<float> C{M, N, true};
     
-    // Initialize with random data (uniform distribution 0-1)
+    // Initialize with random data
     op_uniform_fill(A, 0.0f, 1.0f);
     op_uniform_fill(B, 0.0f, 1.0f);
     
-    // Synchronize after initialization to ensure data is ready
     CUDA_OK(cudaDeviceSynchronize());
     
     CudaTimer timer;
     
-    // Warmup runs - GPU needs a few iterations to "warm up" (cache, clock speeds, etc.)
-    // This ensures consistent timing for the actual benchmark
+    // Warmup runs - GPU needs to "warm up" first
     for (int i = 0; i < warmup_iters; i++) {
         op_mm(A, B, C);
     }
     CUDA_OK(cudaDeviceSynchronize());
     
-    // Benchmark - measure total time including synchronization
-    // We run multiple iterations and average to get more stable results
+    // Actual benchmark - run multiple times and average
     timer.start();
     for (int i = 0; i < bench_iters; i++) {
         op_mm(A, B, C);
     }
-    CUDA_OK(cudaDeviceSynchronize()); // Critical: sync before stopping timer
-    float time_ms = timer.stop() / bench_iters;  // Average time per iteration
+    CUDA_OK(cudaDeviceSynchronize());
+    float time_ms = timer.stop() / bench_iters;
     
     BenchmarkResult result;
     result.M = M;
@@ -127,35 +120,33 @@ BenchmarkResult benchmarkLab1GEMM(int M, int N, int K, int warmup_iters, int ben
     return result;
 }
 
-// Phase 1.2.1: Benchmark cuBLAS SGEMM (FP32) - our performance target
-// cuBLAS is NVIDIA's highly optimized library, so this represents the "best case" performance
-// We use this as a baseline to compare against our implementations
+// Benchmark cuBLAS SGEMM (FP32) - this is our performance target
+// cuBLAS is NVIDIA's optimized library, so this is what we're trying to match
 BenchmarkResult benchmarkCublasSGEMM(int M, int N, int K, int warmup_iters, int bench_iters) {
     cublasHandle_t handle;
     cublasCreate(&handle);
     
-    // Allocate device memory directly (cuBLAS uses raw pointers, not our Tensor class)
+    // cuBLAS uses raw pointers, not our Tensor class
     float *d_A, *d_B, *d_C;
     cudaMalloc(&d_A, M * K * sizeof(float));
     cudaMalloc(&d_B, K * N * sizeof(float));
     cudaMalloc(&d_C, M * N * sizeof(float));
     
-    // Generate random data using cuRAND (CUDA's random number generator)
+    // Generate random data
     curandGenerator_t gen;
     curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
     curandSetPseudoRandomGeneratorSeed(gen, 12345);
     curandGenerateUniform(gen, d_A, M * K);
     curandGenerateUniform(gen, d_B, K * N);
     
-    // cuBLAS GEMM parameters: C = alpha * A * B + beta * C
+    // cuBLAS GEMM: C = alpha * A * B + beta * C
     // alpha=1.0, beta=0.0 means C = A * B
     float alpha = 1.0f, beta = 0.0f;
     CudaTimer timer;
     
-    // Warmup runs
+    // Warmup
     for (int i = 0; i < warmup_iters; i++) {
-        // Note: cuBLAS uses column-major format, so we swap M and N
-        // CUBLAS_OP_N means no transpose
+        // Note: cuBLAS uses column-major, so we swap M and N
         cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N,
                     N, M, K, &alpha,
                     d_B, N, d_A, K,
@@ -163,7 +154,7 @@ BenchmarkResult benchmarkCublasSGEMM(int M, int N, int K, int warmup_iters, int 
     }
     cudaDeviceSynchronize();
     
-    // Benchmark - same pattern as Lab-1
+    // Benchmark
     timer.start();
     for (int i = 0; i < bench_iters; i++) {
         cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N,
@@ -193,8 +184,7 @@ BenchmarkResult benchmarkCublasSGEMM(int M, int N, int K, int warmup_iters, int 
     return result;
 }
 
-// Helper kernel to convert FP32 to FP16 for TensorCore operations
-// TensorCores require FP16 input but can accumulate in FP32
+// Convert FP32 to FP16 for TensorCore (TensorCores need FP16 input)
 __global__ void convert_fp32_to_fp16_kernel(float* in, __half* out, int n) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < n) {
@@ -210,13 +200,13 @@ __global__ void convert_fp16_to_fp32_kernel(__half* in, float* out, int n) {
     }
 }
 
-// Phase 1.2.1: Benchmark cuBLAS HGEMM (FP16 TensorCore path)
-// This uses TensorCores which are much faster than regular FP32 cores
-// Input: FP16, Accumulation: FP32, Output: FP32 (mixed precision)
+// Benchmark cuBLAS HGEMM (FP16 TensorCore path)
+// TensorCores are way faster than regular FP32 cores
+// Uses FP16 input, FP32 accumulation (mixed precision)
 BenchmarkResult benchmarkCublasHGEMM(int M, int N, int K, int warmup_iters, int bench_iters) {
     cublasHandle_t handle;
     cublasCreate(&handle);
-    // Enable TensorCore math mode - this tells cuBLAS to use TensorCores when possible
+    // Enable TensorCore mode
     cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
     
     __half *d_A, *d_B, *d_C;
@@ -286,17 +276,17 @@ BenchmarkResult benchmarkCublasHGEMM(int M, int N, int K, int warmup_iters, int 
     return result;
 }
 
-// Phase 2: Benchmark our TensorCore GEMM implementation
+// Benchmark our TensorCore GEMM implementation
 BenchmarkResult benchmarkTensorCoreGEMM(int M, int N, int K, int warmup_iters, int bench_iters) {
-    // Allocate FP16 input matrices and FP32 output
+    // Allocate FP16 inputs, FP32 output
     Tensor<__half> A{M, K, true};
     Tensor<__half> B{K, N, true};
     Tensor<float> C{M, N, true};
     
-    // Initialize C to zero (important for correctness)
+    // Initialize C to zero (needed for correctness)
     CUDA_OK(cudaMemset(C.rawp, 0, M * N * sizeof(float)));
     
-    // Initialize with random data (convert FP32 to FP16)
+    // Generate random data in FP32, then convert to FP16
     Tensor<float> A_fp32{M, K, true};
     Tensor<float> B_fp32{K, N, true};
     
@@ -306,7 +296,7 @@ BenchmarkResult benchmarkTensorCoreGEMM(int M, int N, int K, int warmup_iters, i
     curandGenerateUniform(gen, A_fp32.rawp, M * K);
     curandGenerateUniform(gen, B_fp32.rawp, K * N);
     
-    // Convert FP32 to FP16
+    // Convert to FP16
     int threads = 256;
     int blocks_A = (M * K + threads - 1) / threads;
     int blocks_B = (K * N + threads - 1) / threads;
@@ -316,13 +306,13 @@ BenchmarkResult benchmarkTensorCoreGEMM(int M, int N, int K, int warmup_iters, i
     
     CudaTimer timer;
     
-    // Warmup runs: Essential to ensure the GPU is fully initialized and clocks are boosted
+    // Warmup
     for (int i = 0; i < warmup_iters; i++) {
         op_mm_tensorcore(A, B, C);
     }
     CUDA_OK(cudaDeviceSynchronize());
     
-    // Benchmark runs: Measure the actual performance
+    // Benchmark
     timer.start();
     for (int i = 0; i < bench_iters; i++) {
         op_mm_tensorcore(A, B, C);
@@ -345,17 +335,14 @@ BenchmarkResult benchmarkTensorCoreGEMM(int M, int N, int K, int warmup_iters, i
     return result;
 }
 
-// Phase 2: Benchmark optimized TensorCore GEMM implementation
+// Benchmark optimized TensorCore GEMM (with double buffering)
 BenchmarkResult benchmarkTensorCoreOptimizedGEMM(int M, int N, int K, int warmup_iters, int bench_iters) {
-    // Allocate FP16 input matrices and FP32 output
     Tensor<__half> A{M, K, true};
     Tensor<__half> B{K, N, true};
     Tensor<float> C{M, N, true};
     
-    // Initialize C to zero (important for correctness)
     CUDA_OK(cudaMemset(C.rawp, 0, M * N * sizeof(float)));
     
-    // Initialize with random data (convert FP32 to FP16)
     Tensor<float> A_fp32{M, K, true};
     Tensor<float> B_fp32{K, N, true};
     
@@ -365,7 +352,6 @@ BenchmarkResult benchmarkTensorCoreOptimizedGEMM(int M, int N, int K, int warmup
     curandGenerateUniform(gen, A_fp32.rawp, M * K);
     curandGenerateUniform(gen, B_fp32.rawp, K * N);
     
-    // Convert FP32 to FP16
     int threads = 256;
     int blocks_A = (M * K + threads - 1) / threads;
     int blocks_B = (K * N + threads - 1) / threads;
@@ -375,13 +361,11 @@ BenchmarkResult benchmarkTensorCoreOptimizedGEMM(int M, int N, int K, int warmup
     
     CudaTimer timer;
     
-    // Warmup runs
     for (int i = 0; i < warmup_iters; i++) {
         op_mm_tensorcore_optimized(A, B, C);
     }
     CUDA_OK(cudaDeviceSynchronize());
     
-    // Benchmark runs
     timer.start();
     for (int i = 0; i < bench_iters; i++) {
         op_mm_tensorcore_optimized(A, B, C);
@@ -404,9 +388,8 @@ BenchmarkResult benchmarkTensorCoreOptimizedGEMM(int M, int N, int K, int warmup
     return result;
 }
 
-// Phase 2 Optimization: Benchmark 3-stage pipelined TensorCore GEMM
-// DISABLED: Performance bug (54% slower than baseline) - pipeline logic needs fixing
-// Keeping function signature for reference but implementation disabled
+// 3-stage pipelined TensorCore GEMM - DISABLED
+// This had a bug that made it 54% slower, so I disabled it for now
 /*
 BenchmarkResult benchmarkTensorCore3StageGEMM(int M, int N, int K, int warmup_iters, int bench_iters) {
     // Allocate FP16 input matrices and FP32 output
@@ -467,17 +450,14 @@ BenchmarkResult benchmarkTensorCore3StageGEMM(int M, int N, int K, int warmup_it
 }
 */
 
-// Phase 2 Optimization: Benchmark large tile TensorCore GEMM (64×64 tiles, 8 warps)
+// Benchmark large tile TensorCore GEMM (64x64 tiles)
 BenchmarkResult benchmarkTensorCoreLargeTileGEMM(int M, int N, int K, int warmup_iters, int bench_iters) {
-    // Allocate FP16 input matrices and FP32 output
     Tensor<__half> A{M, K, true};
     Tensor<__half> B{K, N, true};
     Tensor<float> C{M, N, true};
     
-    // Initialize C to zero (important for correctness)
     CUDA_OK(cudaMemset(C.rawp, 0, M * N * sizeof(float)));
     
-    // Initialize with random data (convert FP32 to FP16)
     Tensor<float> A_fp32{M, K, true};
     Tensor<float> B_fp32{K, N, true};
     
@@ -487,7 +467,6 @@ BenchmarkResult benchmarkTensorCoreLargeTileGEMM(int M, int N, int K, int warmup
     curandGenerateUniform(gen, A_fp32.rawp, M * K);
     curandGenerateUniform(gen, B_fp32.rawp, K * N);
     
-    // Convert FP32 to FP16
     int threads = 256;
     int blocks_A = (M * K + threads - 1) / threads;
     int blocks_B = (K * N + threads - 1) / threads;
@@ -497,13 +476,11 @@ BenchmarkResult benchmarkTensorCoreLargeTileGEMM(int M, int N, int K, int warmup
     
     CudaTimer timer;
     
-    // Warmup runs
     for (int i = 0; i < warmup_iters; i++) {
         op_mm_tensorcore_large_tile(A, B, C);
     }
     CUDA_OK(cudaDeviceSynchronize());
     
-    // Benchmark runs
     timer.start();
     for (int i = 0; i < bench_iters; i++) {
         op_mm_tensorcore_large_tile(A, B, C);
@@ -526,9 +503,9 @@ BenchmarkResult benchmarkTensorCoreLargeTileGEMM(int M, int N, int K, int warmup
     return result;
 }
 
-// Phase 2: Validate TensorCore correctness against cuBLAS
+// Validate our TensorCore kernel against cuBLAS
 bool validateTensorCoreCorrectness(int M, int N, int K, float tolerance = 1e-3f) {
-    std::cout << "\n=== Validating TensorCore Correctness ===" << std::endl;
+    std::cout << "\nValidating TensorCore Correctness" << std::endl;
     std::cout << "Matrix size: " << M << "x" << N << "x" << K << std::endl;
     
     // Allocate matrices
@@ -619,9 +596,9 @@ bool validateTensorCoreCorrectness(int M, int N, int K, float tolerance = 1e-3f)
     
     bool passed = (errors == 0);
     if (passed) {
-        std::cout << "✓ Validation PASSED (tolerance: " << tolerance << ")" << std::endl;
+        std::cout << "Validation PASSED (tolerance: " << tolerance << ")" << std::endl;
     } else {
-        std::cout << "✗ Validation FAILED (tolerance: " << tolerance << ")" << std::endl;
+        std::cout << "Validation FAILED (tolerance: " << tolerance << ")" << std::endl;
     }
     
     cublasDestroy(handle);
@@ -666,21 +643,18 @@ void saveResultsCSV(const std::vector<BenchmarkResult>& results, const std::stri
 }
 
 int main() {
-    // Phase 1.1.3: Main benchmarking harness
-    // Tests both square and rectangular matrices across different sizes
+    // Main benchmarking loop - tests different matrix sizes
     std::cout << "GEMM Benchmark Suite" << std::endl;
-    std::cout << "====================" << std::endl << std::endl;
+    std::cout << std::endl;
     
-    // Print GPU info for reference
+    // Print GPU info
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
     std::cout << "GPU: " << prop.name << std::endl;
     std::cout << "Compute Capability: " << prop.major << "." << prop.minor << std::endl;
     std::cout << std::endl;
     
-    // Test matrix configurations:
-    // - Square matrices: powers of 2 from 128 to 8192
-    // - Rectangular matrices: common shapes in ML workloads (e.g., attention mechanisms)
+    // Test configurations: square matrices and some rectangular ones
     std::vector<std::tuple<int, int, int>> configs = {
         {128, 128, 128},      // Small square
         {256, 256, 256},
@@ -695,7 +669,7 @@ int main() {
         {512, 2048, 512}
     };
     
-    // Iteration counts: warmup to stabilize GPU, then multiple benchmark runs for averaging
+    // Warmup and benchmark iteration counts
     int warmup_iters = 5;
     int bench_iters = 20;
     
@@ -743,7 +717,7 @@ int main() {
                 std::cerr << "cuBLAS HGEMM failed: " << e.what() << std::endl;
             }
             
-            // Phase 2: Benchmark our TensorCore implementation
+            // Our TensorCore implementation
             try {
                 auto result = benchmarkTensorCoreGEMM(M, N, K, warmup_iters, bench_iters);
                 printResult(result, std::cout);
@@ -752,7 +726,7 @@ int main() {
                 std::cerr << "TensorCore GEMM failed: " << e.what() << std::endl;
             }
             
-            // Phase 2 Optimization: Benchmark optimized TensorCore kernel (double buffering, 8 warps)
+            // Optimized version (double buffering)
             try {
                 auto result = benchmarkTensorCoreOptimizedGEMM(M, N, K, warmup_iters, bench_iters);
                 printResult(result, std::cout);
@@ -761,11 +735,7 @@ int main() {
                 std::cerr << "Optimized TensorCore GEMM failed: " << e.what() << std::endl;
             }
             
-            // Phase 2 Optimization: Benchmark 3-stage pipelined TensorCore kernel
-            // DISABLED: Performance bug (54% slower than baseline) - pipeline logic needs fixing
-            // Keeping code for future reference but not benchmarking
-            
-            // Phase 2 Optimization: Benchmark large tile TensorCore kernel (64×64 tiles, 4 warps with double buffering)
+            // Large tile version
             try {
                 auto result = benchmarkTensorCoreLargeTileGEMM(M, N, K, warmup_iters, bench_iters);
                 printResult(result, std::cout);
@@ -780,13 +750,10 @@ int main() {
     
     std::cout << "\nBenchmark completed!" << std::endl;
     
-    // Phase 2: Validate TensorCore correctness
+    // Validate correctness
     if (prop.major >= 7) {
-        std::cout << "\n" << std::string(80, '=') << std::endl;
-        std::cout << "VALIDATING TENSORCORE CORRECTNESS" << std::endl;
-        std::cout << std::string(80, '=') << std::endl;
+        std::cout << "\nValidating TensorCore Correctness" << std::endl;
         
-        // Test a few matrix sizes
         std::vector<std::tuple<int, int, int>> test_sizes = {
             {128, 128, 128},
             {512, 512, 512},
@@ -799,14 +766,12 @@ int main() {
         for (const auto& size : test_sizes) {
             int M, N, K;
             std::tie(M, N, K) = size;
-            if (validateTensorCoreCorrectness(M, N, K, 1e-2f)) {  // 1% tolerance for FP16
+            if (validateTensorCoreCorrectness(M, N, K, 1e-2f)) {
                 passed++;
             }
         }
         
-        std::cout << "\n" << std::string(80, '=') << std::endl;
-        std::cout << "VALIDATION SUMMARY: " << passed << " / " << total << " tests passed" << std::endl;
-        std::cout << std::string(80, '=') << std::endl;
+        std::cout << "\nValidation Summary: " << passed << " / " << total << " tests passed" << std::endl;
     }
     return 0;
 }

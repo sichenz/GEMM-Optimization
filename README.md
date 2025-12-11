@@ -36,8 +36,7 @@ GEMM-Optimization/
 │   ├── analysis_report.txt      # Detailed analysis
 │   │
 │   ├── profiling/               # Nsight Compute results
-│   │   ├── lab1_*.ncu-rep      # Profile data
-│   │   └── profiling_summary.txt
+│   │   ├── profiling_*.log      # Profile data
 │   │
 │   └── cutlass/                 # CUTLASS benchmark results
 │       └── cutlass_*.csv
@@ -46,6 +45,7 @@ GEMM-Optimization/
 │   └── cutlass/                 # CUTLASS library (submodule)
 │
 ├── build/                        # Build directory (generated)
+├── build_profile/                # Build directory for Nsight profiling (generated)
 ├── logs/                         # SLURM job logs (generated)
 ├── CMakeLists.txt               # Build configuration
 └── README.md                    # This file

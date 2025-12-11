@@ -8,16 +8,16 @@
 #include <chrono>
 #include <cmath>
 
-#include "utils/tensor.cuh"
 #include "utils/check_error.cuh"
-#include "ops/op_mm.cuh"
-#include "ops/op_mm_tensorcore.cuh"  // Must be included first (defines ensure_tc_mm_shape_device)
-#include "ops/op_mm_tensorcore_optimized.cuh"
-#include "ops/op_mm_tensorcore_large_tile.cuh"
-// Note: op_mm_tensorcore_3stage.cuh disabled due to performance issues
-#include "ops/op_elemwise.cuh"
+#include "utils/tensor.cuh"
 
-// Phase 1.1.3: Set up benchmarking framework
+#include "ops/op_elemwise.cuh"          
+#include "ops/op_mm.cuh"                
+#include "ops/op_mm_tensorcore.cuh"
+#include "ops/op_mm_tensorcore_optimized.cuh"
+#include "ops/op_mm_tensorcore_3stage.cuh"
+#include "ops/op_mm_tensorcore_large_tile.cuh"
+
 // This file implements the timing harness for measuring FLOPS, memory bandwidth, and latency
 // We benchmark both our Lab-1 kernel and cuBLAS baselines
 

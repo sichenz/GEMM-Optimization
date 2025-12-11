@@ -1,0 +1,89 @@
+========================================================================
+          PHASE 3: CUTLASS vs Our TensorCore Kernel PROFILING           
+========================================================================
+
+This script will:
+  1. Rebuild benchmark_gemm
+  2. Profile our optimized TensorCore kernel with Nsight Compute
+  3. Profile CUTLASS GEMM for the same size (if profiler is available)
+
+Thu Dec 11 01:30:51 AM EST 2025
+
+========================================================================
+STEP 1: Build Project
+========================================================================
+-- The CXX compiler identification is GNU 13.3.0
+-- The CUDA compiler identification is NVIDIA 12.8.93
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Detecting CUDA compiler ABI info
+-- Detecting CUDA compiler ABI info - done
+-- Check for working CUDA compiler: /usr/local/cuda/bin/nvcc - skipped
+-- Detecting CUDA compile features
+-- Detecting CUDA compile features - done
+-- Found CUDAToolkit: /usr/local/cuda/targets/x86_64-linux/include (found version "12.8.93") 
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- Configuring done (4.1s)
+-- Generating done (0.3s)
+-- Build files have been written to: /scratch/sz4972/GEMM-Optimization/build
+[ 50%] Building CUDA object CMakeFiles/benchmark_gemm.dir/src/benchmark_gemm.cu.o
+nvcc warning : Support for offline compilation for architectures prior to '<compute/sm/lto>_75' will be removed in a future release (Use -Wno-deprecated-gpu-targets to suppress warning).
+[100%] Linking CUDA executable benchmark_gemm
+[100%] Built target benchmark_gemm
+✓ Build complete
+
+========================================================================
+STEP 2: Profile Our Optimized TensorCore Kernel (4096x4096x4096)
+========================================================================
+✓ Validation PASSED (tolerance: 0.01)
+
+=== Validating TensorCore Correctness ===
+Matrix size: 512x512x512
+Max absolute difference: 0.31
+Max relative difference: 0.00
+Total mismatches: 0 / 262144
+✓ Validation PASSED (tolerance: 0.01)
+
+=== Validating TensorCore Correctness ===
+Matrix size: 1024x1024x1024
+Max absolute difference: 1.79
+Max relative difference: 0.01
+Total mismatches: 0 / 1048576
+✓ Validation PASSED (tolerance: 0.01)
+
+================================================================================
+VALIDATION SUMMARY: 3 / 3 tests passed
+================================================================================
+==PROF== Disconnected from process 170877
+✗ Nsight Compute profiling for our kernel failed
+
+========================================================================
+STEP 3: Profile CUTLASS GEMM (4096x4096x4096, if available)
+========================================================================
+Running CUTLASS profiler for 4096x4096x4096 FP16->FP32 GEMM...
+✓ CUTLASS profiled
+
+========================================================================
+PHASE 3 PROFILING COMPLETE
+========================================================================
+
+Generated files:
+  • results/profiling_phase3/our_kernel_4096.ncu-rep
+  • results/profiling_phase3/profile_our_kernel_phase3.log
+  • results/profiling_phase3/cutlass_4096.txt (if CUTLASS profiler built)
+
+Next steps:
+  1. Download the .ncu-rep file to your laptop
+  2. Open it with: ncu-ui results/profiling_phase3/our_kernel_4096.ncu-rep
+  3. Compare Nsight metrics vs CUTLASS GEMM (results/profiling_phase3/cutlass_4096.txt)
+
+
+========================================================================
+PHASE 3 JOB COMPLETED!
+========================================================================
+Thu Dec 11 01:31:43 AM EST 2025

@@ -1,0 +1,246 @@
+========================================================================
+          PHASE 4: INTEGRATION & COMPREHENSIVE EVALUATION              
+========================================================================
+
+This script will:
+  1. Build the project (all GEMM and baseline kernels)
+  2. Run comprehensive GEMM benchmarks (FP32 & TensorCore FP16)
+  3. Collect Phase 4 benchmark CSVs and logs
+  4. Run Python analysis to generate Phase 4 plots and summary
+  5. (Optional) Run generate_final_report.py to aggregate all phases
+
+Thu Dec 11 01:49:15 AM EST 2025
+
+========================================================================
+STEP 1: Building Project
+========================================================================
+-- The CXX compiler identification is GNU 13.3.0
+-- The CUDA compiler identification is NVIDIA 12.8.93
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Detecting CUDA compiler ABI info
+-- Detecting CUDA compiler ABI info - done
+-- Check for working CUDA compiler: /usr/local/cuda/bin/nvcc - skipped
+-- Detecting CUDA compile features
+-- Detecting CUDA compile features - done
+-- Found CUDAToolkit: /usr/local/cuda/targets/x86_64-linux/include (found version "12.8.93") 
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- Configuring done (5.3s)
+-- Generating done (0.4s)
+-- Build files have been written to: /scratch/sz4972/GEMM-Optimization/build
+[ 50%] Building CUDA object CMakeFiles/cublas_bench.dir/src/baselines/cublas_bench.cu.o
+[ 50%] Building CUDA object CMakeFiles/gpu_specs.dir/src/gpu_specs.cu.o
+[ 50%] Building CUDA object CMakeFiles/benchmark_gemm.dir/src/benchmark_gemm.cu.o
+nvcc warning : Support for offline compilation for architectures prior to '<compute/sm/lto>_75' will be removed in a future release (Use -Wno-deprecated-gpu-targets to suppress warning).
+nvcc warning : Support for offline compilation for architectures prior to '<compute/sm/lto>_75' will be removed in a future release (Use -Wno-deprecated-gpu-targets to suppress warning).
+nvcc warning : Support for offline compilation for architectures prior to '<compute/sm/lto>_75' will be removed in a future release (Use -Wno-deprecated-gpu-targets to suppress warning).
+[ 66%] Linking CUDA executable gpu_specs
+[ 66%] Built target gpu_specs
+[ 83%] Linking CUDA executable cublas_bench
+[ 83%] Built target cublas_bench
+[100%] Linking CUDA executable benchmark_gemm
+[100%] Built target benchmark_gemm
+✓ Build successful
+
+========================================================================
+STEP 2: Comprehensive GEMM Benchmarks (Phase 4)
+========================================================================
+Running benchmark_gemm to exercise:
+  - Lab-1 tiled FP32 kernel
+  - Our TensorCore kernels (baseline, optimized, large-tile)
+  - cuBLAS FP32 and TensorCore baselines
+Across:
+  - Square sizes: 128, 256, 512, 1024, 2048, 4096, 8192
+  - Rectangular shapes (e.g. 4096x256x1024, 1024x8192x512, etc.)
+
+GEMM Benchmark Suite
+====================
+
+GPU: NVIDIA H100 80GB HBM3
+Compute Capability: 9.0
+
+         Kernel   DType     M     N     K    Time(ms)      GFLOPSBandwidth(GB/s)
+--------------------------------------------------------------------------------
+
+Testing M=128, N=128, K=128
+     Lab1_Tiled    FP32   128   128   128       0.007      583.32          27.34
+   cuBLAS_SGEMM    FP32   128   128   128       0.006      667.20          31.28
+cuBLAS_HGEMM_TensorCore    FP16   128   128   128       0.004      951.18          22.29
+Lab2_TensorCore    FP16   128   128   128       0.022      191.74           4.49
+Lab2_TensorCore_Optimized    FP16   128   128   128       0.021      202.94           4.76
+Lab2_TensorCore_LargeTile    FP16   128   128   128       0.020      208.45           4.89
+
+Testing M=256, N=256, K=256
+     Lab1_Tiled    FP32   256   256   256       0.011     3026.63          70.94
+   cuBLAS_SGEMM    FP32   256   256   256       0.010     3522.26          82.55
+cuBLAS_HGEMM_TensorCore    FP16   256   256   256       0.004     7565.48          88.66
+Lab2_TensorCore    FP16   256   256   256       0.038      890.96          10.44
+Lab2_TensorCore_Optimized    FP16   256   256   256       0.035      958.61          11.23
+Lab2_TensorCore_LargeTile    FP16   256   256   256       0.034      986.99          11.57
+
+Testing M=512, N=512, K=512
+     Lab1_Tiled    FP32   512   512   512       0.034     7931.37          92.95
+   cuBLAS_SGEMM    FP32   512   512   512       0.016    17107.39         200.48
+cuBLAS_HGEMM_TensorCore    FP16   512   512   512       0.006    46141.96         270.36
+Lab2_TensorCore    FP16   512   512   512       0.071     3794.89          22.24
+Lab2_TensorCore_Optimized    FP16   512   512   512       0.069     3908.77          22.90
+Lab2_TensorCore_LargeTile    FP16   512   512   512       0.063     4254.18          24.93
+
+Testing M=1024, N=1024, K=1024
+     Lab1_Tiled    FP32  1024  1024  1024       0.239     8997.45          52.72
+   cuBLAS_SGEMM    FP32  1024  1024  1024       0.057    37420.95         219.26
+cuBLAS_HGEMM_TensorCore    FP16  1024  1024  1024       0.011   190163.96         557.12
+Lab2_TensorCore    FP16  1024  1024  1024       0.229     9360.78          27.42
+Lab2_TensorCore_Optimized    FP16  1024  1024  1024       0.265     8088.96          23.70
+Lab2_TensorCore_LargeTile    FP16  1024  1024  1024       0.226     9510.83          27.86
+
+Testing M=2048, N=2048, K=2048
+     Lab1_Tiled    FP32  2048  2048  2048       1.873     9173.39          26.88
+   cuBLAS_SGEMM    FP32  2048  2048  2048       0.341    50326.53         147.44
+cuBLAS_HGEMM_TensorCore    FP16  2048  2048  2048       0.028   608593.66         891.49
+Lab2_TensorCore    FP16  2048  2048  2048       1.826     9409.91          13.78
+Lab2_TensorCore_Optimized    FP16  2048  2048  2048       2.109     8146.79          11.93
+Lab2_TensorCore_LargeTile    FP16  2048  2048  2048       1.813     9475.53          13.88
+
+Testing M=4096, N=4096, K=4096
+     Lab1_Tiled    FP32  4096  4096  4096      15.306     8979.70          13.15
+   cuBLAS_SGEMM    FP32  4096  4096  4096       2.652    51815.86          75.90
+cuBLAS_HGEMM_TensorCore    FP16  4096  4096  4096       0.172   796825.13         583.61
+Lab2_TensorCore    FP16  4096  4096  4096      13.548    10144.83           7.43
+Lab2_TensorCore_Optimized    FP16  4096  4096  4096      15.688     8760.55           6.42
+Lab2_TensorCore_LargeTile    FP16  4096  4096  4096      13.148    10453.38           7.66
+
+Testing M=8192, N=8192, K=8192
+     Lab1_Tiled    FP32  8192  8192  8192     121.256     9067.71           6.64
+   cuBLAS_SGEMM    FP32  8192  8192  8192      21.262    51711.64          37.87
+cuBLAS_HGEMM_TensorCore    FP16  8192  8192  8192       1.385   794082.21         290.80
+Lab2_TensorCore    FP16  8192  8192  8192     107.000    10275.79           3.76
+Lab2_TensorCore_Optimized    FP16  8192  8192  8192     124.744     8814.17           3.23
+Lab2_TensorCore_LargeTile    FP16  8192  8192  8192     105.408    10430.96           3.82
+
+Testing M=4096, N=256, K=1024
+     Lab1_Tiled    FP32  4096   256  1024       0.239     8993.11          92.21
+   cuBLAS_SGEMM    FP32  4096   256  1024       0.058    37268.21         382.14
+cuBLAS_HGEMM_TensorCore    FP16  4096   256  1024       0.010   224707.39        1152.06
+Lab2_TensorCore    FP16  4096   256  1024       0.234     9161.56          46.97
+Lab2_TensorCore_Optimized    FP16  4096   256  1024       0.265     8111.50          41.59
+Lab2_TensorCore_LargeTile    FP16  4096   256  1024       0.225     9542.74          48.93
+
+Testing M=1024, N=4096, K=512
+     Lab1_Tiled    FP32  1024  4096   512       0.472     9099.38          57.76
+   cuBLAS_SGEMM    FP32  1024  4096   512       0.093    46397.97         294.52
+cuBLAS_HGEMM_TensorCore    FP16  1024  4096   512       0.014   315583.65        1001.61
+Lab2_TensorCore    FP16  1024  4096   512       0.467     9196.24          29.19
+Lab2_TensorCore_Optimized    FP16  1024  4096   512       0.546     7865.71          24.96
+Lab2_TensorCore_LargeTile    FP16  1024  4096   512       0.463     9275.78          29.44
+
+Testing M=2048, N=512, K=2048
+     Lab1_Tiled    FP32  2048   512  2048       0.476     9023.62          52.87
+   cuBLAS_SGEMM    FP32  2048   512  2048       0.098    43634.56         255.67
+cuBLAS_HGEMM_TensorCore    FP16  2048   512  2048       0.016   272164.09         797.36
+Lab2_TensorCore    FP16  2048   512  2048       0.453     9472.50          27.75
+Lab2_TensorCore_Optimized    FP16  2048   512  2048       0.516     8323.14          24.38
+Lab2_TensorCore_LargeTile    FP16  2048   512  2048       0.439     9778.57          28.65
+
+Testing M=512, N=2048, K=512
+     Lab1_Tiled    FP32   512  2048   512       0.122     8833.60          77.64
+   cuBLAS_SGEMM    FP32   512  2048   512       0.031    35021.85         307.81
+cuBLAS_HGEMM_TensorCore    FP16   512  2048   512       0.007   153181.61         673.16
+Lab2_TensorCore    FP16   512  2048   512       0.119     9027.77          39.67
+Lab2_TensorCore_Optimized    FP16   512  2048   512       0.136     7870.81          34.59
+Lab2_TensorCore_LargeTile    FP16   512  2048   512       0.117     9192.11          40.40
+Results saved to results/benchmark_results.csv
+
+Benchmark completed!
+
+================================================================================
+VALIDATING TENSORCORE CORRECTNESS
+================================================================================
+
+=== Validating TensorCore Correctness ===
+Matrix size: 128x128x128
+Max absolute difference: 0.04
+Max relative difference: 0.00
+Total mismatches: 0 / 16384
+✓ Validation PASSED (tolerance: 0.01)
+
+=== Validating TensorCore Correctness ===
+Matrix size: 512x512x512
+Max absolute difference: 0.37
+Max relative difference: 0.00
+Total mismatches: 0 / 262144
+✓ Validation PASSED (tolerance: 0.01)
+
+=== Validating TensorCore Correctness ===
+Matrix size: 1024x1024x1024
+Max absolute difference: 1.24
+Max relative difference: 0.00
+Total mismatches: 0 / 1048576
+✓ Validation PASSED (tolerance: 0.01)
+
+================================================================================
+VALIDATION SUMMARY: 3 / 3 tests passed
+================================================================================
+✓ Benchmarks complete
+
+========================================================================
+STEP 3: Phase 4 Analysis & Plots
+========================================================================
+Warning: Could not parse GPU specs file: [Errno 2] No such file or directory: 'results/gpu_specs.txt'
+Using fallback V100 GPU specs
+
+Loaded 66 benchmark results
+Kernels tested: Lab1_Tiled, cuBLAS_SGEMM, cuBLAS_HGEMM_TensorCore, Lab2_TensorCore, Lab2_TensorCore_Optimized, Lab2_TensorCore_LargeTile
+Matrix sizes: 11
+
+Generating analysis...
+Roofline plot (size vs GFLOPS) saved to results/performance_plot.png
+Performance comparison saved to results/performance_comparison.png
+Analysis report saved to results/analysis_report.txt
+
+Analysis complete!
+Generated files:
+  - results/performance_plot.png
+  - results/performance_comparison.png
+  - results/analysis_report.txt
+✓ Phase 4 analysis step complete (where scripts were available)
+
+========================================================================
+STEP 4: Final Cross-Phase Summary (Optional)
+========================================================================
+If src/generate_final_report.py is present, we will run it to produce
+an aggregate summary comparing: Lab-1 / our kernels / cuBLAS / CUTLASS.
+
+Final Report Generation
+
+Loading benchmark results...
+Error: results/final/benchmark_results.csv not found
+
+========================================================================
+PHASE 4 COMPLETE!
+========================================================================
+
+Generated / updated files (Phase 4):
+  • results/benchmark_results_phase4.csv
+  • results/final_phase4/benchmark_output_phase4.txt
+  • results/final_phase4/benchmark_results_phase4.csv
+  • results/performance_plot_phase4.png            (if performance.py ran)
+  • results/performance_comparison_phase4.png      (if performance.py ran)
+  • results/analysis_report_phase4.txt             (if performance.py ran)
+  • results/final_phase4/performance_summary_phase4.txt (if generated)
+
+You can now:
+  - Compare Phase 4 CSV against Phase 1/2 CSVs
+  - Inspect plots in results/plots/ and results/final_phase4/
+  - Use Nsight Compute data from Phase 3 for deeper microarchitectural analysis
+
+
+========================================================================
+PHASE 4 JOB COMPLETED!
+========================================================================
+Thu Dec 11 01:50:07 AM EST 2025

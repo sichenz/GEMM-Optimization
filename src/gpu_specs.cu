@@ -5,6 +5,11 @@
 #include <iomanip>
 #include <ctime>
 
+// Phase 1.1: Hardware Analysis & Baseline Setup
+// This file collects GPU specifications needed to understand our target hardware
+// and calculate theoretical performance limits for GEMM operations.
+
+// Simple error checking helper - exits if CUDA call fails
 void checkCudaError(cudaError_t error, const char* msg) {
     if (error != cudaSuccess) {
         std::cerr << "CUDA Error: " << msg << " - " 
@@ -13,7 +18,9 @@ void checkCudaError(cudaError_t error, const char* msg) {
     }
 }
 
-// Helper to get CUDA cores per SM based on compute capability
+// Different GPU architectures have different numbers of CUDA cores per SM
+// This function maps compute capability (major.minor) to the correct core count
+// We need this to calculate peak FP32 TFLOPS accurately
 int getSPcores(cudaDeviceProp devProp) {
     int cores = 0;
     int mp = devProp.multiProcessorCount;
@@ -47,6 +54,8 @@ int getSPcores(cudaDeviceProp devProp) {
     return cores;
 }
 
+// Main function to collect and print all GPU specifications
+// This is Phase 1.1.1: Document GPU specifications
 void printDeviceSpecs(std::ostream& out) {
     int deviceCount = 0;
     checkCudaError(cudaGetDeviceCount(&deviceCount), "Get Device Count");
@@ -56,6 +65,7 @@ void printDeviceSpecs(std::ostream& out) {
         return;
     }
     
+    // Loop through all available GPUs (usually just one in our case)
     for (int dev = 0; dev < deviceCount; dev++) {
         cudaDeviceProp prop;
         checkCudaError(cudaGetDeviceProperties(&prop, dev), "Get Device Properties");
@@ -65,7 +75,7 @@ void printDeviceSpecs(std::ostream& out) {
         out << "========================================" << std::endl;
         out << std::endl;
         
-        // Basic Info
+        // Basic Info - GPU name, memory, clock rates
         out << "=== Basic Information ===" << std::endl;
         out << "Compute Capability: " << prop.major << "." << prop.minor << std::endl;
         out << "Total Global Memory: " 
@@ -121,19 +131,23 @@ void printDeviceSpecs(std::ostream& out) {
             << " KB" << std::endl;
         out << std::endl;
         
-        // Performance Characteristics
+        // Performance Characteristics - Phase 1.1.2: Calculate performance ceilings
         out << "=== Performance Characteristics ===" << std::endl;
         
         // Memory Bandwidth (theoretical peak)
         // Formula: 2 * MemClockRate(MHz) * BusWidth(bits) / 8 / 1000
+        // The "2" comes from DDR (Double Data Rate) - data transferred on both clock edges
+        // This is the maximum rate we can read/write data from global memory
         double memBandwidthGB = 2.0 * prop.memoryClockRate * 
                                 (prop.memoryBusWidth / 8.0) / 1.0e6;
         out << "Peak Memory Bandwidth: " 
             << std::fixed << std::setprecision(1)
             << memBandwidthGB << " GB/s" << std::endl;
         
-        // FP32 TFLOPS
+        // FP32 TFLOPS - Peak floating point performance
         // Formula: CUDA_Cores * Clock_Rate(GHz) * 2 (FMA = 2 ops) / 1000
+        // FMA (Fused Multiply-Add) counts as 2 operations: multiply + add
+        // This tells us the maximum compute throughput for FP32 operations
         double clockRateGHz = prop.clockRate / 1.0e6; // Convert kHz to GHz
         double fp32TFlops = (cudaCores * clockRateGHz * 2.0) / 1000.0;
         
@@ -201,7 +215,10 @@ void printDeviceSpecs(std::ostream& out) {
             out << "TensorCore Support: No" << std::endl;
         }
         
-        // Arithmetic Intensity Analysis
+        // Arithmetic Intensity Analysis - Phase 1.1.2: Calculate arithmetic intensity
+        // Arithmetic Intensity (AI) = FLOPS / Bytes transferred
+        // This tells us if a workload is memory-bound or compute-bound
+        // Ridge point: AI where memory bandwidth limit equals compute limit
         out << std::endl;
         out << "=== Arithmetic Intensity Analysis ===" << std::endl;
         double ridgePointFP32 = (fp32TFlops * 1000.0) / memBandwidthGB; // GFLOPS / GB/s
@@ -210,6 +227,8 @@ void printDeviceSpecs(std::ostream& out) {
             << ridgePointFP32 << " FLOPS/Byte" << std::endl;
         out << "  (Workloads with AI > " << ridgePointFP32 
             << " are compute-bound)" << std::endl;
+        out << "  (Workloads with AI < " << ridgePointFP32 
+            << " are memory-bound)" << std::endl;
         
         if (prop.major >= 7) {
             double fp16TFlopsValue = (prop.major == 7 && prop.minor == 5) ? 65.0 : 0;
@@ -226,7 +245,10 @@ void printDeviceSpecs(std::ostream& out) {
 }
 
 int main() {
-    // Get current time
+    // Phase 1.1.1: Generate GPU specifications report
+    // This will be used later to calculate efficiency and understand performance limits
+    
+    // Get current time for report timestamp
     std::time_t now = std::time(nullptr);
     char timestamp[100];
     std::strftime(timestamp, sizeof(timestamp), "%b %d %Y %H:%M:%S", std::localtime(&now));
@@ -237,10 +259,10 @@ int main() {
     std::cout << "========================================" << std::endl;
     std::cout << std::endl;
     
-    // Print to console
+    // Print to console for immediate viewing
     printDeviceSpecs(std::cout);
     
-    // Save to file
+    // Save to file for later analysis (used by roofline_analysis.py)
     std::ofstream outFile("results/gpu_specs.txt");
     if (outFile.is_open()) {
         outFile << "========================================" << std::endl;

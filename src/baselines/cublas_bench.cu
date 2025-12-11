@@ -10,18 +10,24 @@
 #include <cuda_fp16.h>
 #include <cublas_v2.h>
 
+// Phase 1.2.1: cuBLAS Reference Implementation Benchmarks
+// This is a more detailed cuBLAS benchmark tool that tests both FP32 and mixed precision
+// Used to establish performance ceiling targets for our implementations
+
 #define CHECK_CUDA(x) do { cudaError_t e = (x); if (e != cudaSuccess) { \
   fprintf(stderr, "CUDA error %s:%d: %s\n", __FILE__, __LINE__, cudaGetErrorString(e)); exit(1);} } while(0)
 #define CHECK_CUBLAS(x) do { cublasStatus_t s = (x); if (s != CUBLAS_STATUS_SUCCESS) { \
   fprintf(stderr, "cuBLAS error %s:%d: %d\n", __FILE__, __LINE__, int(s)); exit(1);} } while(0)
 
+// Initialize random data for testing
 static void init_random(float* p, size_t n) {
   for (size_t i = 0; i < n; ++i) { p[i] = float(rand()) / RAND_MAX - 0.5f; }
 }
 
+// Helper kernel to convert FP32 to FP16 for TensorCore operations
 __global__ void f32_to_f16(const float* __restrict__ in, __half* __restrict__ out, size_t n) {
   size_t i = blockIdx.x * blockDim.x + threadIdx.x;
-  if (i < n) out[i] = __float2half_rn(in[i]);
+  if (i < n) out[i] = __float2half_rn(in[i]);  // Round-to-nearest conversion
 }
 
 struct Result {
@@ -45,15 +51,19 @@ static double approx_bytes_gemm_mixed(int M, int N, int K) {
   return (double(M)*K + double(K)*N) * sizeof(__half) + (double(M)*N) * sizeof(float);
 }
 
+// Benchmark cuBLAS SGEMM (FP32 single precision)
+// This is the standard FP32 GEMM - our performance target for Phase 2
 static Result bench_sgemm(cublasHandle_t handle, int M, int N, int K, int iters=50, int warmup=5) {
-  float alpha = 1.f, beta = 0.f;
+  float alpha = 1.f, beta = 0.f;  // C = alpha*A*B + beta*C
   size_t asz = size_t(M)*K, bsz = size_t(K)*N, csz = size_t(M)*N;
 
+  // Allocate device memory
   float *A_d, *B_d, *C_d;
   CHECK_CUDA(cudaMalloc(&A_d, asz*sizeof(float)));
   CHECK_CUDA(cudaMalloc(&B_d, bsz*sizeof(float)));
   CHECK_CUDA(cudaMalloc(&C_d, csz*sizeof(float)));
 
+  // Initialize with random data on host, then copy to device
   std::vector<float> hA(asz), hB(bsz), hC(csz, 0.f);
   init_random(hA.data(), asz);
   init_random(hB.data(), bsz);
@@ -61,7 +71,9 @@ static Result bench_sgemm(cublasHandle_t handle, int M, int N, int K, int iters=
   CHECK_CUDA(cudaMemcpy(B_d, hB.data(), bsz*sizeof(float), cudaMemcpyHostToDevice));
   CHECK_CUDA(cudaMemcpy(C_d, hC.data(), csz*sizeof(float), cudaMemcpyHostToDevice));
 
-  // Warmup (column-major: lda=M, ldb=K, ldc=M)
+  // Warmup runs to stabilize GPU performance
+  // Note: cuBLAS uses column-major format (Fortran-style)
+  // lda=M means leading dimension of A is M (number of rows)
   for (int i=0;i<warmup;i++) {
     CHECK_CUBLAS(cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, M,N,K,
                              &alpha, A_d,M, B_d,K, &beta, C_d,M));
@@ -97,11 +109,15 @@ static Result bench_sgemm(cublasHandle_t handle, int M, int N, int K, int iters=
 #define CUBLAS_GEMM_DEFAULT_TENSOR_OP CUBLAS_GEMM_DEFAULT
 #endif
 
+// Benchmark cuBLAS GemmEx with FP16 input and FP32 accumulation (TensorCore path)
+// Phase 1.2.1: This uses TensorCores which are much faster than regular FP32 cores
+// Input: FP16, Accumulation: FP32, Output: FP32 (mixed precision)
+// This is the performance target for Phase 2 TensorCore implementation
 static Result bench_gemmex_f16f32(cublasHandle_t handle, int M, int N, int K, int iters=50, int warmup=5) {
   float alpha = 1.f, beta = 0.f;
   size_t asz = size_t(M)*K, bsz = size_t(K)*N, csz = size_t(M)*N;
 
-  // device buffers
+  // Device buffers: need both FP32 (for conversion) and FP16 (for computation)
   float *A32_d, *B32_d; __half *A16_d, *B16_d; float *C32_d;
   CHECK_CUDA(cudaMalloc(&A32_d, asz*sizeof(float)));
   CHECK_CUDA(cudaMalloc(&B32_d, bsz*sizeof(float)));

@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8
-#SBATCH --time=1:00:00
+#SBATCH --time=0:10:00
 #SBATCH --mem=32GB
 #SBATCH --job-name=phase1_complete
 #SBATCH --mail-user=sz4972@nyu.edu
@@ -13,7 +13,7 @@ set -euo pipefail
 
 module purge
 
-# Create necessary directories
+# Create necessary directories (host side)
 mkdir -p results/{profiling,cutlass}
 mkdir -p logs
 mkdir -p build
@@ -38,9 +38,11 @@ singularity exec --nv \
     --overlay /scratch/$USER/env/overlay-50G-10M.ext3:rw \
     /scratch/work/public/singularity/cuda12.8.1-cudnn9.8.0-ubuntu24.04.2.sif \
     /bin/bash -c "
+set -euo pipefail
+
 source /ext3/env.sh
 conda activate test
-cd /scratch/$USER/GEMM-Optimization
+cd /scratch/\$USER/GEMM-Optimization
 
 echo '========================================================================'
 echo 'STEP 1: Building Project'
@@ -72,6 +74,7 @@ if [ \$? -ne 0 ]; then
     echo '✗ GPU specs failed!'
     exit 1
 fi
+
 echo '✓ GPU specs collected'
 echo ''
 
@@ -87,6 +90,7 @@ if [ \$? -ne 0 ]; then
     echo '✗ Benchmark failed!'
     exit 1
 fi
+
 echo '✓ Benchmarks complete'
 echo ''
 
@@ -113,7 +117,6 @@ else
     for size in 512 2048 4096; do
         echo \"Profiling \${size}x\${size}x\${size}...\"
         
-        # Calculate launch skip based on size
         # Skip indices: 128=0, 256=1, 512=2, 1024=3, 2048=4, 4096=5, 8192=6
         if [ \$size -eq 512 ]; then
             skip=2
@@ -123,7 +126,6 @@ else
             skip=5
         fi
         
-        # Profile with verbose error output and store logs in results/profiling
         if ncu --set full \
             --export results/profiling/lab1_\${size} \
             --target-processes all \
@@ -163,7 +165,6 @@ if [ ! -f 'third_party/cutlass/build/tools/profiler/cutlass_profiler' ]; then
     mkdir -p third_party/cutlass/build
     cd third_party/cutlass/build
     
-    # FIXED: Use detected GPU architecture instead of hardcoded 75
     cmake .. -DCUTLASS_NVCC_ARCHS=\${GPU_ARCH} -DCUTLASS_UNITY_BUILD_ENABLED=ON -DCMAKE_BUILD_TYPE=Release
     cmake --build . --target cutlass_profiler -j8
     cd ../../..
@@ -222,8 +223,33 @@ else
     echo 'No profiling data found, skipping Nsight analysis'
 fi
 
+# Phase 1 file renaming
+mkdir -p results
+
+# Rename analysis outputs for Phase 1
+if [ -f results/performance_plot.png ]; then
+    mv results/performance_plot.png results/performance_plot_phase1.png
+fi
+
+if [ -f results/performance_comparison.png ]; then
+    mv results/performance_comparison.png results/performance_comparison_phase1.png
+fi
+
+if [ -f results/analysis_report.txt ]; then
+    mv results/analysis_report.txt results/analysis_report_phase1.txt
+fi
+
+# Rename GPU specs and benchmark CSV for Phase 1
+if [ -f results/gpu_specs.txt ]; then
+    mv results/gpu_specs.txt results/gpu_specs_phase1.txt
+fi
+
+if [ -f results/benchmark_results.csv ]; then
+    mv results/benchmark_results.csv results/benchmark_results_phase1.csv
+fi
+
 echo ''
-echo '✓ Analysis complete'
+echo '✓ Analysis complete and Phase 1 files renamed'
 echo ''
 
 echo '========================================================================'
@@ -232,10 +258,10 @@ echo '========================================================================'
 echo ''
 echo 'Generated Files:'
 echo '  GPU Specifications:'
-echo '    • results/gpu_specs.txt'
+echo '    • results/gpu_specs_phase1.txt'
 echo ''
 echo '  Benchmark Results:'
-echo '    • results/benchmark_results.csv'
+echo '    • results/benchmark_results_phase1.csv'
 echo '    • results/cutlass/ (CUTLASS results)'
 echo ''
 echo '  Profiling Data:'
@@ -248,12 +274,12 @@ else
 fi
 echo ''
 echo '  Analysis & Visualizations:'
-echo '    • results/performance_plot.png'
-echo '    • results/performance_comparison.png'
-echo '    • results/analysis_report.txt'
+echo '    • results/performance_plot_phase1.png'
+echo '    • results/performance_comparison_phase1.png'
+echo '    • results/analysis_report_phase1.txt'
 echo ''
 echo 'Next Steps:'
-echo '  1. Review results/analysis_report.txt for optimization opportunities'
+echo '  1. Review results/analysis_report_phase1.txt for optimization opportunities'
 echo '  2. Compare against cuBLAS and CUTLASS baselines'
 echo '  3. Proceed to Phase 2 optimizations'
 echo ''

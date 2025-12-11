@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8
-#SBATCH --time=4:00:00
+#SBATCH --time=1:00:00
 #SBATCH --mem=32GB
 #SBATCH --job-name=phase1_complete
 #SBATCH --mail-user=sz4972@nyu.edu
@@ -213,7 +213,7 @@ echo 'STEP 6: Generating Analysis and Visualizations'
 echo '========================================================================'
 
 # Run comprehensive analysis
-python3 src/roofline_analysis.py
+python3 src/performance.py
 
 # Analyze profiling results (only if files exist)
 if ls results/profiling/*.ncu-rep 1> /dev/null 2>&1; then
@@ -248,7 +248,7 @@ else
 fi
 echo ''
 echo '  Analysis & Visualizations:'
-echo '    • results/roofline_plot.png'
+echo '    • results/performance_plot.png'
 echo '    • results/performance_comparison.png'
 echo '    • results/analysis_report.txt'
 echo ''

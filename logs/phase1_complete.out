@@ -9,7 +9,7 @@ This script will:
   4. Run CUTLASS benchmarks
   5. Generate comprehensive analysis and visualizations
 
-Thu Nov 13 01:46:42 AM EST 2025
+Wed Dec 10 10:22:44 PM EST 2025
 
 ========================================================================
 STEP 1: Building Project
@@ -30,11 +30,11 @@ STEP 1: Building Project
 -- Performing Test CMAKE_HAVE_LIBC_PTHREAD
 -- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
 -- Found Threads: TRUE  
--- Configuring done (5.1s)
--- Generating done (0.4s)
+-- Configuring done (5.6s)
+-- Generating done (0.5s)
 -- Build files have been written to: /scratch/sz4972/GEMM-Optimization/build
 [ 16%] Building CUDA object CMakeFiles/gpu_specs.dir/src/gpu_specs.cu.o
-[ 50%] Building CUDA object CMakeFiles/benchmark_gemm.dir/src/benchmark_gemm.cu.o
+[ 33%] Building CUDA object CMakeFiles/benchmark_gemm.dir/src/benchmark_gemm.cu.o
 [ 50%] Building CUDA object CMakeFiles/cublas_bench.dir/src/baselines/cublas_bench.cu.o
 nvcc warning : Support for offline compilation for architectures prior to '<compute/sm/lto>_75' will be removed in a future release (Use -Wno-deprecated-gpu-targets to suppress warning).
 nvcc warning : Support for offline compilation for architectures prior to '<compute/sm/lto>_75' will be removed in a future release (Use -Wno-deprecated-gpu-targets to suppress warning).
@@ -52,24 +52,24 @@ STEP 2: GPU Specifications
 ========================================================================
 ========================================
 GPU Specifications Report
-Generated: Nov 13 2025 01:47:04
+Generated: Dec 10 2025 22:23:16
 ========================================
 
 ========================================
-Device 0: Quadro RTX 8000
+Device 0: Tesla V100-PCIE-32GB
 ========================================
 
 === Basic Information ===
-Compute Capability: 7.5
-Total Global Memory: 44.48 GB
-Memory Clock Rate: 6501.00 MHz
-Memory Bus Width: 384 bits
+Compute Capability: 7.0
+Total Global Memory: 31.74 GB
+Memory Clock Rate: 877.00 MHz
+Memory Bus Width: 4096 bits
 
 === Compute Resources ===
-Number of SMs: 72
-CUDA Cores: 4608 (total)
+Number of SMs: 80
+CUDA Cores: 5120 (total)
 CUDA Cores per SM: 64
-Max Threads per SM: 1024
+Max Threads per SM: 2048
 Max Threads per Block: 1024
 Max Block Dimensions: (1024, 1024, 64)
 Max Grid Dimensions: (2147483647, 65535, 65535)
@@ -78,18 +78,18 @@ Warp Size: 32
 === Memory Hierarchy ===
 L2 Cache Size: 6.00 MB
 Shared Memory per Block: 48.00 KB
-Shared Memory per SM: 64.00 KB
+Shared Memory per SM: 96.00 KB
 Registers per Block: 65536
 Registers per SM: 65536
 Constant Memory: 64.00 KB
 
 === Performance Characteristics ===
-Peak Memory Bandwidth: 624.1 GB/s
-Estimated FP32 Peak TFLOPS: 14.93 TFLOPS
-Base Clock Rate: 1.62 GHz
-TensorCore Architecture: Turing
-TensorCore FP16 Peak TFLOPS: 65.0 TFLOPS
-TensorCore Speedup vs FP32: 4.4x
+Peak Memory Bandwidth: 898.0 GB/s
+Estimated FP32 Peak TFLOPS: 14.13 TFLOPS
+Base Clock Rate: 1.38 GHz
+TensorCore Architecture: Volta
+TensorCore FP16 Peak TFLOPS: 112.0 TFLOPS
+TensorCore Speedup vs FP32: 7.9x
 
 === Feature Support ===
 Concurrent Kernels: Yes
@@ -97,12 +97,11 @@ ECC Enabled: Yes
 Unified Addressing: Yes
 Managed Memory: Yes
 Cooperative Launch: Yes
-TensorCore Support: Yes (Compute 7.5)
+TensorCore Support: Yes (Compute 7.0)
 
 === Arithmetic Intensity Analysis ===
-FP32 Ridge Point: 23.92 FLOPS/Byte
-  (Workloads with AI > 23.92 are compute-bound)
-FP16 TensorCore Ridge Point: 104.15 FLOPS/Byte
+FP32 Ridge Point: 15.74 FLOPS/Byte
+  (Workloads with AI > 15.74 are compute-bound)
 
 ✓ Results saved to results/gpu_specs.txt
 ✓ GPU specs collected
@@ -115,66 +114,66 @@ This may take 30-60 minutes...
 GEMM Benchmark Suite
 ====================
 
-GPU: Quadro RTX 8000
-Compute Capability: 7.5
+GPU: Tesla V100-PCIE-32GB
+Compute Capability: 7.0
 
          Kernel   DType     M     N     K    Time(ms)      GFLOPSBandwidth(GB/s)
 --------------------------------------------------------------------------------
 
 Testing M=128, N=128, K=128
-     Lab1_Tiled    FP32   128   128   128       0.013      315.76          14.80
-   cuBLAS_SGEMM    FP32   128   128   128       0.009      479.85          22.49
-cuBLAS_HGEMM_TensorCore    FP16   128   128   128       0.007      610.92          14.32
+     Lab1_Tiled    FP32   128   128   128       0.010      419.23          19.65
+   cuBLAS_SGEMM    FP32   128   128   128       0.009      487.89          22.87
+cuBLAS_HGEMM_TensorCore    FP16   128   128   128       0.008      519.41          12.17
 
 Testing M=256, N=256, K=256
-     Lab1_Tiled    FP32   256   256   256       0.030     1101.27          25.81
-   cuBLAS_SGEMM    FP32   256   256   256       0.013     2521.52          59.10
-cuBLAS_HGEMM_TensorCore    FP16   256   256   256       0.010     3512.23          41.16
+     Lab1_Tiled    FP32   256   256   256       0.018     1888.31          44.26
+   cuBLAS_SGEMM    FP32   256   256   256       0.013     2622.75          61.47
+cuBLAS_HGEMM_TensorCore    FP16   256   256   256       0.008     4003.73          46.92
 
 Testing M=512, N=512, K=512
-     Lab1_Tiled    FP32   512   512   512       0.200     1341.73          15.72
-   cuBLAS_SGEMM    FP32   512   512   512       0.042     6345.39          74.36
-cuBLAS_HGEMM_TensorCore    FP16   512   512   512       0.018    14754.39          86.45
+     Lab1_Tiled    FP32   512   512   512       0.104     2587.52          30.32
+   cuBLAS_SGEMM    FP32   512   512   512       0.036     7470.15          87.54
+cuBLAS_HGEMM_TensorCore    FP16   512   512   512       0.013    20547.72         120.40
 
 Testing M=1024, N=1024, K=1024
-     Lab1_Tiled    FP32  1024  1024  1024       1.461     1469.98           8.61
-   cuBLAS_SGEMM    FP32  1024  1024  1024       0.241     8922.63          52.28
-cuBLAS_HGEMM_TensorCore    FP16  1024  1024  1024       0.041    52721.24         154.46
+     Lab1_Tiled    FP32  1024  1024  1024       0.652     3291.50          19.29
+   cuBLAS_SGEMM    FP32  1024  1024  1024       0.213    10072.85          59.02
+cuBLAS_HGEMM_TensorCore    FP16  1024  1024  1024       0.043    50520.47         148.01
 
 Testing M=2048, N=2048, K=2048
-     Lab1_Tiled    FP32  2048  2048  2048      10.577     1624.28           4.76
-   cuBLAS_SGEMM    FP32  2048  2048  2048       1.345    12772.64          37.42
-cuBLAS_HGEMM_TensorCore    FP16  2048  2048  2048       0.195    88268.47         129.30
+     Lab1_Tiled    FP32  2048  2048  2048       5.081     3381.53           9.91
+   cuBLAS_SGEMM    FP32  2048  2048  2048       1.312    13093.31          38.36
+cuBLAS_HGEMM_TensorCore    FP16  2048  2048  2048       0.225    76225.96         111.66
 
 Testing M=4096, N=4096, K=4096
-     Lab1_Tiled    FP32  4096  4096  4096      70.454     1950.76           2.86
-   cuBLAS_SGEMM    FP32  4096  4096  4096      10.520    13064.76          19.14
-cuBLAS_HGEMM_TensorCore    FP16  4096  4096  4096       1.510    91047.64          66.69
+     Lab1_Tiled    FP32  4096  4096  4096      37.021     3712.41           5.44
+   cuBLAS_SGEMM    FP32  4096  4096  4096      10.254    13403.73          19.63
+cuBLAS_HGEMM_TensorCore    FP16  4096  4096  4096       1.476    93102.70          68.19
 
 Testing M=8192, N=8192, K=8192
-     Lab1_Tiled    FP32  8192  8192  8192     564.731     1946.97           1.43
-   cuBLAS_SGEMM    FP32  8192  8192  8192      82.571    13315.98           9.75
-cuBLAS_HGEMM_TensorCore    FP16  8192  8192  8192      12.064    91139.28          33.38
+     Lab1_Tiled    FP32  8192  8192  8192     293.431     3747.09           2.74
+   cuBLAS_SGEMM    FP32  8192  8192  8192      79.471    13835.43          10.13
+cuBLAS_HGEMM_TensorCore    FP16  8192  8192  8192      11.112    98950.63          36.24
 
 Testing M=4096, N=256, K=1024
-     Lab1_Tiled    FP32  4096   256  1024       1.249     1719.69          17.63
-   cuBLAS_SGEMM    FP32  4096   256  1024       0.186    11536.38         118.29
-cuBLAS_HGEMM_TensorCore    FP16  4096   256  1024       0.039    54422.89         279.02
+     Lab1_Tiled    FP32  4096   256  1024       0.617     3478.77          35.67
+   cuBLAS_SGEMM    FP32  4096   256  1024       0.206    10413.27         106.78
+cuBLAS_HGEMM_TensorCore    FP16  4096   256  1024       0.048    45177.47         231.62
 
 Testing M=1024, N=4096, K=512
-     Lab1_Tiled    FP32  1024  4096   512       2.286     1878.95          11.93
-   cuBLAS_SGEMM    FP32  1024  4096   512       0.353    12182.89          77.33
-cuBLAS_HGEMM_TensorCore    FP16  1024  4096   512       0.065    66095.95         209.78
+     Lab1_Tiled    FP32  1024  4096   512       1.211     3546.19          22.51
+   cuBLAS_SGEMM    FP32  1024  4096   512       0.408    10529.89          66.84
+cuBLAS_HGEMM_TensorCore    FP16  1024  4096   512       0.068    63081.13         200.21
 
 Testing M=2048, N=512, K=2048
-     Lab1_Tiled    FP32  2048   512  2048       2.298     1868.90          10.95
-   cuBLAS_SGEMM    FP32  2048   512  2048       0.354    12145.19          71.16
-cuBLAS_HGEMM_TensorCore    FP16  2048   512  2048       0.059    73391.15         215.01
+     Lab1_Tiled    FP32  2048   512  2048       1.164     3689.14          21.62
+   cuBLAS_SGEMM    FP32  2048   512  2048       0.375    11451.10          67.10
+cuBLAS_HGEMM_TensorCore    FP16  2048   512  2048       0.073    58519.64         171.44
 
 Testing M=512, N=2048, K=512
-     Lab1_Tiled    FP32   512  2048   512       0.566     1895.78          16.66
-   cuBLAS_SGEMM    FP32   512  2048   512       0.094    11476.90         100.87
-cuBLAS_HGEMM_TensorCore    FP16   512  2048   512       0.019    56346.65         247.62
+     Lab1_Tiled    FP32   512  2048   512       0.297     3611.34          31.74
+   cuBLAS_SGEMM    FP32   512  2048   512       0.109     9856.05          86.63
+cuBLAS_HGEMM_TensorCore    FP16   512  2048   512       0.022    49359.27         216.91
 Results saved to results/benchmark_results.csv
 
 Benchmark completed!
@@ -202,7 +201,7 @@ Building profiling executable...
 -- Performing Test CMAKE_HAVE_LIBC_PTHREAD
 -- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
 -- Found Threads: TRUE  
--- Configuring done (2.3s)
+-- Configuring done (2.5s)
 -- Generating done (0.0s)
 -- Build files have been written to: /scratch/sz4972/GEMM-Optimization/build_profile
 [ 50%] Building CUDA object CMakeFiles/benchmark_gemm.dir/src/benchmark_gemm.cu.o
@@ -210,70 +209,70 @@ nvcc warning : Support for offline compilation for architectures prior to '<comp
 [100%] Linking CUDA executable benchmark_gemm
 [100%] Built target benchmark_gemm
 Profiling 512x512x512...
-cuBLAS_HGEMM_TensorCore    FP16  4096   256  1024       0.040    53887.55         276.28
+cuBLAS_HGEMM_TensorCore    FP16  4096   256  1024       0.130    16573.57          84.97
 
 Testing M=1024, N=4096, K=512
-     Lab1_Tiled    FP32  1024  4096   512       2.307     1861.97          11.82
-   cuBLAS_SGEMM    FP32  1024  4096   512       0.350    12253.97          77.78
-cuBLAS_HGEMM_TensorCore    FP16  1024  4096   512       0.066    64985.47         206.25
+     Lab1_Tiled    FP32  1024  4096   512       1.211     3546.64          22.51
+   cuBLAS_SGEMM    FP32  1024  4096   512       0.408    10517.76          66.76
+cuBLAS_HGEMM_TensorCore    FP16  1024  4096   512       0.137    31249.76          99.18
 
 Testing M=2048, N=512, K=2048
-     Lab1_Tiled    FP32  2048   512  2048       2.314     1856.22          10.88
-   cuBLAS_SGEMM    FP32  2048   512  2048       0.354    12144.86          71.16
-cuBLAS_HGEMM_TensorCore    FP16  2048   512  2048       0.059    72811.85         213.32
+     Lab1_Tiled    FP32  2048   512  2048       1.209     3553.85          20.82
+   cuBLAS_SGEMM    FP32  2048   512  2048       0.382    11231.94          65.81
+cuBLAS_HGEMM_TensorCore    FP16  2048   512  2048       0.131    32664.33          95.70
 
 Testing M=512, N=2048, K=512
-     Lab1_Tiled    FP32   512  2048   512       0.572     1876.35          16.49
-   cuBLAS_SGEMM    FP32   512  2048   512       0.094    11396.60         100.17
-cuBLAS_HGEMM_TensorCore    FP16   512  2048   512       0.031    34868.99         153.23
+     Lab1_Tiled    FP32   512  2048   512       0.326     3291.41          28.93
+   cuBLAS_SGEMM    FP32   512  2048   512       0.151     7131.05          62.68
+cuBLAS_HGEMM_TensorCore    FP16   512  2048   512       0.126     8541.28          37.53
 Results saved to results/benchmark_results.csv
 
 Benchmark completed!
-==PROF== Disconnected from process 3462653
+==PROF== Disconnected from process 4055195
   ✓ Profiling 512 succeeded
 Profiling 2048x2048x2048...
-cuBLAS_HGEMM_TensorCore    FP16  4096   256  1024       0.040    53704.28         275.34
+cuBLAS_HGEMM_TensorCore    FP16  4096   256  1024       0.131    16434.35          84.26
 
 Testing M=1024, N=4096, K=512
-     Lab1_Tiled    FP32  1024  4096   512       2.301     1866.40          11.85
-   cuBLAS_SGEMM    FP32  1024  4096   512       0.350    12270.27          77.89
-cuBLAS_HGEMM_TensorCore    FP16  1024  4096   512       0.066    64908.46         206.01
+     Lab1_Tiled    FP32  1024  4096   512       1.208     3555.08          22.57
+   cuBLAS_SGEMM    FP32  1024  4096   512       0.408    10527.05          66.82
+cuBLAS_HGEMM_TensorCore    FP16  1024  4096   512       0.139    30827.01          97.84
 
 Testing M=2048, N=512, K=2048
-     Lab1_Tiled    FP32  2048   512  2048       2.311     1858.57          10.89
-   cuBLAS_SGEMM    FP32  2048   512  2048       0.354    12142.50          71.15
-cuBLAS_HGEMM_TensorCore    FP16  2048   512  2048       0.059    72888.96         213.54
+     Lab1_Tiled    FP32  2048   512  2048       1.204     3568.29          20.91
+   cuBLAS_SGEMM    FP32  2048   512  2048       0.382    11249.02          65.91
+cuBLAS_HGEMM_TensorCore    FP16  2048   512  2048       0.132    32460.12          95.10
 
 Testing M=512, N=2048, K=512
-     Lab1_Tiled    FP32   512  2048   512       0.574     1870.33          16.44
-   cuBLAS_SGEMM    FP32   512  2048   512       0.094    11368.79          99.92
-cuBLAS_HGEMM_TensorCore    FP16   512  2048   512       0.029    36448.44         160.17
+     Lab1_Tiled    FP32   512  2048   512       0.335     3206.10          28.18
+   cuBLAS_SGEMM    FP32   512  2048   512       0.153     7034.32          61.83
+cuBLAS_HGEMM_TensorCore    FP16   512  2048   512       0.127     8443.28          37.10
 Results saved to results/benchmark_results.csv
 
 Benchmark completed!
-==PROF== Disconnected from process 3462738
+==PROF== Disconnected from process 4055232
   ✓ Profiling 2048 succeeded
 Profiling 4096x4096x4096...
-cuBLAS_HGEMM_TensorCore    FP16  4096   256  1024       0.040    53445.52         274.01
+cuBLAS_HGEMM_TensorCore    FP16  4096   256  1024       0.129    16584.83          85.03
 
 Testing M=1024, N=4096, K=512
-     Lab1_Tiled    FP32  1024  4096   512       2.322     1849.95          11.74
-   cuBLAS_SGEMM    FP32  1024  4096   512       0.349    12315.19          78.17
-cuBLAS_HGEMM_TensorCore    FP16  1024  4096   512       0.066    65094.20         206.60
+     Lab1_Tiled    FP32  1024  4096   512       1.213     3540.75          22.48
+   cuBLAS_SGEMM    FP32  1024  4096   512       0.409    10509.98          66.71
+cuBLAS_HGEMM_TensorCore    FP16  1024  4096   512       0.139    30821.70          97.82
 
 Testing M=2048, N=512, K=2048
-     Lab1_Tiled    FP32  2048   512  2048       2.309     1860.03          10.90
-   cuBLAS_SGEMM    FP32  2048   512  2048       0.356    12078.25          70.77
-cuBLAS_HGEMM_TensorCore    FP16  2048   512  2048       0.059    72554.05         212.56
+     Lab1_Tiled    FP32  2048   512  2048       1.190     3609.13          21.15
+   cuBLAS_SGEMM    FP32  2048   512  2048       0.382    11242.95          65.88
+cuBLAS_HGEMM_TensorCore    FP16  2048   512  2048       0.129    33331.11          97.65
 
 Testing M=512, N=2048, K=512
-     Lab1_Tiled    FP32   512  2048   512       0.575     1868.59          16.42
-   cuBLAS_SGEMM    FP32   512  2048   512       0.095    11351.68          99.77
-cuBLAS_HGEMM_TensorCore    FP16   512  2048   512       0.031    35131.85         154.39
+     Lab1_Tiled    FP32   512  2048   512       0.325     3303.84          29.04
+   cuBLAS_SGEMM    FP32   512  2048   512       0.151     7110.50          62.49
+cuBLAS_HGEMM_TensorCore    FP16   512  2048   512       0.126     8510.63          37.40
 Results saved to results/benchmark_results.csv
 
 Benchmark completed!
-==PROF== Disconnected from process 3462797
+==PROF== Disconnected from process 4055278
   ✓ Profiling 4096 succeeded
 ✓ Profiling step complete
 
@@ -281,7 +280,7 @@ Benchmark completed!
 STEP 5: CUTLASS Benchmarks
 ========================================================================
 Initializing CUTLASS submodule...
-Detected GPU compute capability: 75
+Detected GPU compute capability: 70
 Running CUTLASS benchmarks...
           cuBLAS: Not run
            cuDNN: Not run
@@ -291,16 +290,16 @@ Running CUTLASS benchmarks...
                   --runtime_input_datatype_a=invalid --runtime_input_datatype_b=invalid --use_pdl=false --enable_sm90_mixed_dtype_shuffle_test=false  \
                   --swizzle_size=1 --op_class=tensorop --accum=f32 --cta_m=256 --cta_n=128 --cta_k=32 --cluster_m=1 --cluster_n=1  \
                   --cluster_k=1 --cluster_m_fallback=0 --cluster_n_fallback=0 --cluster_k_fallback=0 --stages=2 --warps_m=4  \
-                  --warps_n=2 --warps_k=1 --inst_m=16 --inst_n=8 --inst_k=8 --min_cc=75 --max_cc=1024
+                  --warps_n=2 --warps_k=1 --inst_m=16 --inst_n=16 --inst_k=4 --min_cc=70 --max_cc=75
 
            Bytes: 402653184  bytes
            FLOPs: 1099645845504  flops
            FLOPs/Byte: 2731
 
-         Runtime: 11.6314  ms
-          Memory: 32.2403 GiB/s
+         Runtime: 11.09  ms
+          Memory: 33.8144 GiB/s
 
-            Math: 94541 GFLOP/s
+            Math: 99156.9 GFLOP/s
 
 Wrote results to 'results/cutlass/cutlass_fp32.gemm.csv'
 ✓ FP32 benchmarks complete
@@ -312,16 +311,16 @@ Wrote results to 'results/cutlass/cutlass_fp32.gemm.csv'
                   --runtime_input_datatype_a=invalid --runtime_input_datatype_b=invalid --use_pdl=false --enable_sm90_mixed_dtype_shuffle_test=false  \
                   --swizzle_size=1 --op_class=tensorop --accum=f32 --cta_m=256 --cta_n=128 --cta_k=32 --cluster_m=1 --cluster_n=1  \
                   --cluster_k=1 --cluster_m_fallback=0 --cluster_n_fallback=0 --cluster_k_fallback=0 --stages=2 --warps_m=4  \
-                  --warps_n=2 --warps_k=1 --inst_m=16 --inst_n=8 --inst_k=8 --min_cc=75 --max_cc=1024
+                  --warps_n=2 --warps_k=1 --inst_m=16 --inst_n=16 --inst_k=4 --min_cc=70 --max_cc=75
 
            Bytes: 402653184  bytes
            FLOPs: 1099645845504  flops
            FLOPs/Byte: 2731
 
-         Runtime: 11.6464  ms
-          Memory: 32.1988 GiB/s
+         Runtime: 11.091  ms
+          Memory: 33.8111 GiB/s
 
-            Math: 94419.5 GFLOP/s
+            Math: 99147.2 GFLOP/s
 
 Wrote results to 'results/cutlass/cutlass_f16tc.gemm.csv'
 ✓ FP16 TensorCore benchmarks complete
@@ -331,22 +330,22 @@ Wrote results to 'results/cutlass/cutlass_f16tc.gemm.csv'
 STEP 6: Generating Analysis and Visualizations
 ========================================================================
 Parsed GPU specs from file:
-  FP32 Peak: 14930.0 GFLOPS
-  FP16 Peak: 65000.0 GFLOPS
-  Bandwidth: 624.1 GB/s
+  FP32 Peak: 14130.0 GFLOPS
+  FP16 Peak: 112000.0 GFLOPS
+  Bandwidth: 898.0 GB/s
 
 Loaded 33 benchmark results
 Kernels tested: Lab1_Tiled, cuBLAS_SGEMM, cuBLAS_HGEMM_TensorCore
 Matrix sizes: 11
 
 Generating analysis...
-Roofline plot saved to results/roofline_plot.png
+Roofline plot (size vs GFLOPS) saved to results/performance_plot.png
 Performance comparison saved to results/performance_comparison.png
 Analysis report saved to results/analysis_report.txt
 
 Analysis complete!
 Generated files:
-  - results/roofline_plot.png
+  - results/performance_plot.png
   - results/performance_comparison.png
   - results/analysis_report.txt
 No profiling data found, skipping Nsight analysis
@@ -369,7 +368,7 @@ Generated Files:
     • (Profiling data not available)
 
   Analysis & Visualizations:
-    • results/roofline_plot.png
+    • results/performance_plot.png
     • results/performance_comparison.png
     • results/analysis_report.txt
 
@@ -382,4 +381,4 @@ Next Steps:
 ========================================================================
 ALL JOBS COMPLETED!
 ========================================================================
-Thu Nov 13 02:31:13 AM EST 2025
+Wed Dec 10 10:44:09 PM EST 2025

@@ -1,69 +1,69 @@
 GEMM Benchmark Suite
 ====================
 
-==PROF== Connected to process 3462738 (/scratch/sz4972/GEMM-Optimization/build_profile/benchmark_gemm)
-GPU: Quadro RTX 8000
-Compute Capability: 7.5
+==PROF== Connected to process 4055232 (/scratch/sz4972/GEMM-Optimization/build_profile/benchmark_gemm)
+GPU: Tesla V100-PCIE-32GB
+Compute Capability: 7.0
 
          Kernel   DType     M     N     K    Time(ms)      GFLOPSBandwidth(GB/s)
 --------------------------------------------------------------------------------
 
 Testing M=128, N=128, K=128
 ==ERROR== ERR_NVGPUCTRPERM - The user does not have permission to access NVIDIA GPU Performance Counters on the target device 0. For instructions on enabling permissions and to get more information see https://developer.nvidia.com/ERR_NVGPUCTRPERM
-     Lab1_Tiled    FP32   128   128   128       0.174       24.09           1.13
-   cuBLAS_SGEMM    FP32   128   128   128       0.025      170.62           8.00
-cuBLAS_HGEMM_TensorCore    FP16   128   128   128       0.030      138.36           3.24
+     Lab1_Tiled    FP32   128   128   128       0.252       16.66           0.78
+   cuBLAS_SGEMM    FP32   128   128   128       0.131       31.96           1.50
+cuBLAS_HGEMM_TensorCore    FP16   128   128   128       0.138       30.46           0.71
 
 Testing M=256, N=256, K=256
-     Lab1_Tiled    FP32   256   256   256       0.184      182.81           4.28
-   cuBLAS_SGEMM    FP32   256   256   256       0.027     1222.90          28.66
-cuBLAS_HGEMM_TensorCore    FP16   256   256   256       0.026     1296.46          15.19
+     Lab1_Tiled    FP32   256   256   256       0.313      107.33           2.52
+   cuBLAS_SGEMM    FP32   256   256   256       0.262      128.13           3.00
+cuBLAS_HGEMM_TensorCore    FP16   256   256   256       0.135      247.96           2.91
 
 Testing M=512, N=512, K=512
-     Lab1_Tiled    FP32   512   512   512       0.184     1458.81          17.10
-   cuBLAS_SGEMM    FP32   512   512   512       0.040     6692.15          78.42
-cuBLAS_HGEMM_TensorCore    FP16   512   512   512       0.058     4595.24          26.93
+     Lab1_Tiled    FP32   512   512   512       0.317      846.77           9.92
+   cuBLAS_SGEMM    FP32   512   512   512       0.129     2073.28          24.30
+cuBLAS_HGEMM_TensorCore    FP16   512   512   512       0.129     2083.97          12.21
 
 Testing M=1024, N=1024, K=1024
-     Lab1_Tiled    FP32  1024  1024  1024       1.508     1424.20           8.34
-   cuBLAS_SGEMM    FP32  1024  1024  1024       0.257     8360.60          48.99
-cuBLAS_HGEMM_TensorCore    FP16  1024  1024  1024       0.044    48763.89         142.86
+     Lab1_Tiled    FP32  1024  1024  1024       0.602     3568.20          20.91
+   cuBLAS_SGEMM    FP32  1024  1024  1024       0.196    10954.13          64.18
+cuBLAS_HGEMM_TensorCore    FP16  1024  1024  1024       0.129    16702.06          48.93
 
 Testing M=2048, N=2048, K=2048
-     Lab1_Tiled    FP32  2048  2048  2048       8.998     1909.38           5.59
-   cuBLAS_SGEMM    FP32  2048  2048  2048       1.316    13055.36          38.25
-cuBLAS_HGEMM_TensorCore    FP16  2048  2048  2048       0.190    90192.51         132.12
+     Lab1_Tiled    FP32  2048  2048  2048       4.645     3698.32          10.83
+   cuBLAS_SGEMM    FP32  2048  2048  2048       1.298    13234.80          38.77
+cuBLAS_HGEMM_TensorCore    FP16  2048  2048  2048       0.225    76493.14         112.05
 
 Testing M=4096, N=4096, K=4096
-     Lab1_Tiled    FP32  4096  4096  4096      70.341     1953.91           2.86
-   cuBLAS_SGEMM    FP32  4096  4096  4096      10.645    12910.76          18.91
-cuBLAS_HGEMM_TensorCore    FP16  4096  4096  4096       1.507    91201.62          66.80
+     Lab1_Tiled    FP32  4096  4096  4096      37.034     3711.11           5.44
+   cuBLAS_SGEMM    FP32  4096  4096  4096      10.253    13405.37          19.64
+cuBLAS_HGEMM_TensorCore    FP16  4096  4096  4096       1.482    92714.61          67.91
 
 Testing M=8192, N=8192, K=8192
-     Lab1_Tiled    FP32  8192  8192  8192     563.640     1950.73           1.43
-   cuBLAS_SGEMM    FP32  8192  8192  8192      83.561    13158.19           9.64
-cuBLAS_HGEMM_TensorCore    FP16  8192  8192  8192      12.207    90072.71          32.99
+     Lab1_Tiled    FP32  8192  8192  8192     293.413     3747.31           2.74
+   cuBLAS_SGEMM    FP32  8192  8192  8192      79.846    13770.34          10.09
+cuBLAS_HGEMM_TensorCore    FP16  8192  8192  8192      11.138    98714.92          36.15
 
 Testing M=4096, N=256, K=1024
-     Lab1_Tiled    FP32  4096   256  1024       1.297     1655.89          16.98
-   cuBLAS_SGEMM    FP32  4096   256  1024       0.192    11204.70         114.89
-cuBLAS_HGEMM_TensorCore    FP16  4096   256  1024       0.040    53704.28         275.34
+     Lab1_Tiled    FP32  4096   256  1024       0.621     3459.82          35.48
+   cuBLAS_SGEMM    FP32  4096   256  1024       0.207    10375.44         106.39
+cuBLAS_HGEMM_TensorCore    FP16  4096   256  1024       0.131    16434.35          84.26
 
 Testing M=1024, N=4096, K=512
-     Lab1_Tiled    FP32  1024  4096   512       2.301     1866.40          11.85
-   cuBLAS_SGEMM    FP32  1024  4096   512       0.350    12270.27          77.89
-cuBLAS_HGEMM_TensorCore    FP16  1024  4096   512       0.066    64908.46         206.01
+     Lab1_Tiled    FP32  1024  4096   512       1.208     3555.08          22.57
+   cuBLAS_SGEMM    FP32  1024  4096   512       0.408    10527.05          66.82
+cuBLAS_HGEMM_TensorCore    FP16  1024  4096   512       0.139    30827.01          97.84
 
 Testing M=2048, N=512, K=2048
-     Lab1_Tiled    FP32  2048   512  2048       2.311     1858.57          10.89
-   cuBLAS_SGEMM    FP32  2048   512  2048       0.354    12142.50          71.15
-cuBLAS_HGEMM_TensorCore    FP16  2048   512  2048       0.059    72888.96         213.54
+     Lab1_Tiled    FP32  2048   512  2048       1.204     3568.29          20.91
+   cuBLAS_SGEMM    FP32  2048   512  2048       0.382    11249.02          65.91
+cuBLAS_HGEMM_TensorCore    FP16  2048   512  2048       0.132    32460.12          95.10
 
 Testing M=512, N=2048, K=512
-     Lab1_Tiled    FP32   512  2048   512       0.574     1870.33          16.44
-   cuBLAS_SGEMM    FP32   512  2048   512       0.094    11368.79          99.92
-cuBLAS_HGEMM_TensorCore    FP16   512  2048   512       0.029    36448.44         160.17
+     Lab1_Tiled    FP32   512  2048   512       0.335     3206.10          28.18
+   cuBLAS_SGEMM    FP32   512  2048   512       0.153     7034.32          61.83
+cuBLAS_HGEMM_TensorCore    FP16   512  2048   512       0.127     8443.28          37.10
 Results saved to results/benchmark_results.csv
 
 Benchmark completed!
-==PROF== Disconnected from process 3462738
+==PROF== Disconnected from process 4055232

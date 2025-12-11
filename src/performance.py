@@ -51,40 +51,21 @@ def calculate_arithmetic_intensity(M, N, K, bytes_per_element):
     return flops / bytes_transferred
 
 def plot_roofline(df, gpu_specs, output_file):
-    """Create roofline plot with improved visualization"""
+    """
+    Plot GEMM performance vs matrix size for square matrices, with a single
+    hardware peak GFLOPS line.
+    """
     fig, ax = plt.subplots(figsize=(14, 9))
-    
-    # Calculate arithmetic intensity for each benchmark
-    df['bytes_per_element'] = df['DType'].apply(lambda x: 2 if x == 'FP16' else 4)
-    df['AI'] = df.apply(lambda row: calculate_arithmetic_intensity(
-        row['M'], row['N'], row['K'], row['bytes_per_element']), axis=1)
-    
-    # Roofline parameters
-    peak_bandwidth = gpu_specs['peak_bandwidth_gb_s']
-    peak_gflops_fp32 = gpu_specs['peak_gflops_fp32']
-    peak_gflops_fp16 = gpu_specs['peak_gflops_fp16']
-    
-    # Create roofline curves
-    ai_min = max(0.1, df['AI'].min() * 0.5)
-    ai_max = min(1000, df['AI'].max() * 2)
-    ai_range = np.logspace(np.log10(ai_min), np.log10(ai_max), 1000)
-    
-    # FP32 roofline
-    memory_bound_fp32 = ai_range * peak_bandwidth
-    compute_bound_fp32 = np.full_like(ai_range, peak_gflops_fp32)
-    roofline_fp32 = np.minimum(memory_bound_fp32, compute_bound_fp32)
-    
-    # Plot rooflines
-    ax.loglog(ai_range, roofline_fp32, 'k-', linewidth=2.5, label='FP32 Roofline', zorder=1)
-    
-    if peak_gflops_fp16 > 0:
-        memory_bound_fp16 = ai_range * peak_bandwidth
-        compute_bound_fp16 = np.full_like(ai_range, peak_gflops_fp16)
-        roofline_fp16 = np.minimum(memory_bound_fp16, compute_bound_fp16)
-        ax.loglog(ai_range, roofline_fp16, 'b--', linewidth=2.5, label='FP16 TensorCore Roofline', zorder=1)
-    
-    # Plot benchmark results
-    kernels = df['Kernel'].unique()
+
+    # Use only square matrices: M = N = K
+    square_df = df[(df['M'] == df['N']) & (df['N'] == df['K'])].copy()
+    if len(square_df) == 0:
+        print("Warning: No square matrices found in the benchmark data. Skipping roofline plot.")
+        plt.close()
+        return
+
+    # Get unique kernels and define colors/markers
+    kernels = square_df['Kernel'].unique()
     colors = {
         'Lab1_Tiled': '#e74c3c',
         'cuBLAS_SGEMM': '#27ae60',
@@ -95,42 +76,60 @@ def plot_roofline(df, gpu_specs, output_file):
         'cuBLAS_SGEMM': 's',
         'cuBLAS_HGEMM_TensorCore': '^'
     }
-    
+
+    # Plot GFLOPS vs matrix size for each kernel
     for kernel in kernels:
-        kernel_df = df[df['Kernel'] == kernel]
-        color = colors.get(kernel, 'gray')
-        marker = markers.get(kernel, 'x')
-        ax.loglog(kernel_df['AI'], kernel_df['GFLOPS'],
-                 marker=marker, color=color, markersize=10,
-                 linestyle='', label=kernel, alpha=0.8, markeredgewidth=1.5,
-                 markeredgecolor='white', zorder=3)
-    
-    # Calculate ridge points
-    ridge_point_fp32 = peak_gflops_fp32 / peak_bandwidth
-    ax.axvline(x=ridge_point_fp32, color='k', linestyle=':', alpha=0.3, linewidth=1.5)
-    
-    if peak_gflops_fp16 > 0:
-        ridge_point_fp16 = peak_gflops_fp16 / peak_bandwidth
-        ax.axvline(x=ridge_point_fp16, color='b', linestyle=':', alpha=0.3, linewidth=1.5)
-    
-    # Labels and formatting
-    ax.set_xlabel('Arithmetic Intensity (FLOPS/Byte)', fontsize=14, fontweight='bold')
+        kernel_df = square_df[square_df['Kernel'] == kernel].sort_values('M')
+        ax.plot(
+            kernel_df['M'],
+            kernel_df['GFLOPS'],
+            marker=markers.get(kernel, 'o'),
+            linestyle='-',
+            linewidth=2.5,
+            markersize=8,
+            markeredgewidth=1.5,
+            markeredgecolor='white',
+            color=colors.get(kernel, 'gray'),
+            label=kernel,
+            alpha=0.9,
+        )
+
+    # Determine hardware peak GFLOPS (single limit line)
+    peak_fp32 = gpu_specs.get('peak_gflops_fp32', 0.0)
+    peak_fp16 = gpu_specs.get('peak_gflops_fp16', 0.0)
+    hardware_peak = max(peak_fp32, peak_fp16)
+
+    if hardware_peak > 0:
+        ax.axhline(
+            y=hardware_peak,
+            linestyle='--',
+            linewidth=2.5,
+            color='k',
+            alpha=0.7,
+            label=f'Hardware Peak ({hardware_peak:.0f} GFLOPS)'
+        )
+
+    # Axis labels, title, scales
+    ax.set_xlabel('Matrix Size (M = N = K)', fontsize=14, fontweight='bold')
     ax.set_ylabel('Performance (GFLOPS)', fontsize=14, fontweight='bold')
-    ax.set_title(f'Roofline Model: GEMM Performance Analysis', fontsize=16, fontweight='bold', pad=20)
-    ax.grid(True, which='both', linestyle='--', alpha=0.4, linewidth=0.5)
-    ax.legend(loc='lower right', fontsize=11, framealpha=0.9)
-    
-    # Set axis limits
-    y_min = max(1, df['GFLOPS'].min() * 0.5)
-    y_max = peak_gflops_fp32 * 2 if peak_gflops_fp16 == 0 else peak_gflops_fp16 * 1.5
+    ax.set_title('GEMM Performance vs Matrix Size with Hardware Peak', fontsize=16, fontweight='bold', pad=20)
+
+    # Use log scale on X (sizes) to better spread typical 128–8192 ranges
+    ax.set_xscale('log', base=2)
+
+    # Y-axis limits
+    y_min = max(1, square_df['GFLOPS'].min() * 0.7)
+    y_max_data = square_df['GFLOPS'].max()
+    y_max = max(y_max_data, hardware_peak) * 1.2
     ax.set_ylim(y_min, y_max)
-    ax.set_xlim(ai_min, ai_max)
-    
+
+    ax.grid(True, which='both', linestyle='--', alpha=0.3)
+    ax.legend(loc='best', fontsize=11, framealpha=0.9)
     ax.tick_params(axis='both', which='major', labelsize=11)
-    
+
     plt.tight_layout()
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
-    print(f"Roofline plot saved to {output_file}")
+    print(f"Roofline plot (size vs GFLOPS) saved to {output_file}")
     plt.close()
 
 def plot_performance_comparison(df, output_file):
@@ -265,13 +264,13 @@ def main():
     
     # Generate visualizations and reports
     print("\nGenerating analysis...")
-    plot_roofline(df, gpu_specs, 'results/roofline_plot.png')
+    plot_roofline(df, gpu_specs, 'results/performance_plot.png')
     plot_performance_comparison(df, 'results/performance_comparison.png')
     generate_analysis_report(df, gpu_specs, 'results/analysis_report.txt')
     
     print("\nAnalysis complete!")
     print("Generated files:")
-    print("  - results/roofline_plot.png")
+    print("  - results/performance_plot.png")
     print("  - results/performance_comparison.png")
     print("  - results/analysis_report.txt")
 

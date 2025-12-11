@@ -1,0 +1,55 @@
+================================================================================
+GEMM PERFORMANCE ANALYSIS REPORT
+================================================================================
+
+GPU SPECIFICATIONS:
+----------------------------------------
+Peak FP32 Performance: 66910.00 GFLOPS
+Peak FP16 TensorCore Performance: 989000.00 GFLOPS
+Peak Memory Bandwidth: 3352.30 GB/s
+TensorCore Speedup (theoretical): 14.8x
+
+PERFORMANCE SUMMARY BY KERNEL:
+----------------------------------------
+
+Lab1_Tiled:
+  Average GFLOPS: 6355.20
+  Max GFLOPS: 9125.31
+  Min GFLOPS: 24.05
+  Average Bandwidth: 33.60 GB/s
+  Average AI: 295.35 FLOPS/Byte
+  Average Efficiency: 9.50% of peak
+
+cuBLAS_SGEMM:
+  Average GFLOPS: 30523.79
+  Max GFLOPS: 51718.50
+  Min GFLOPS: 116.06
+  Average Bandwidth: 142.88 GB/s
+  Average AI: 295.35 FLOPS/Byte
+  Average Efficiency: 45.62% of peak
+
+cuBLAS_HGEMM_TensorCore:
+  Average GFLOPS: 174112.23
+  Max GFLOPS: 817685.05
+  Min GFLOPS: 100.38
+  Average Bandwidth: 161.07 GB/s
+  Average AI: 590.70 FLOPS/Byte
+  Average Efficiency: 17.60% of peak
+
+Lab2_TensorCore:
+  Average GFLOPS: 6919.70
+  Max GFLOPS: 10258.61
+  Min GFLOPS: 114.05
+  Average Bandwidth: 19.19 GB/s
+  Average AI: 590.70 FLOPS/Byte
+  Average Efficiency: 0.70% of peak
+
+Lab2_TensorCore_Optimized:
+  Average GFLOPS: 6120.72
+  Max GFLOPS: 8807.37
+  Min GFLOPS: 115.09
+  Average Bandwidth: 17.24 GB/s
+  Average AI: 590.70 FLOPS/Byte
+  Average Efficiency: 0.62% of peak
+
+================================================================================

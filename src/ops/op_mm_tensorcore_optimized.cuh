@@ -17,6 +17,9 @@ using namespace nvcuda;
 #define WMMA_N 16
 #define WMMA_K 16
 
+// Note: ensure_tc_mm_shape_device is defined in op_mm_tensorcore.cuh
+// Include it if needed, or rely on it being included before this file
+
 // Optimized TensorCore GEMM Kernel with double buffering
 // Uses 4 warps per block (128 threads) for 32×32 output tiles
 // Double buffering overlaps loading next tile with computing current tile

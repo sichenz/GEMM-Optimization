@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8
-#SBATCH --time=1:00:00
+#SBATCH --time=0:10:00
 #SBATCH --mem=32GB
 #SBATCH --job-name=phase2_complete
 #SBATCH --mail-user=sz4972@nyu.edu

@@ -1,0 +1,53 @@
+========================================
+GPU Specifications Report
+Generated: Dec 10 2025 22:23:16
+========================================
+
+========================================
+Device 0: Tesla V100-PCIE-32GB
+========================================
+
+=== Basic Information ===
+Compute Capability: 7.0
+Total Global Memory: 31.74 GB
+Memory Clock Rate: 877.00 MHz
+Memory Bus Width: 4096 bits
+
+=== Compute Resources ===
+Number of SMs: 80
+CUDA Cores: 5120 (total)
+CUDA Cores per SM: 64
+Max Threads per SM: 2048
+Max Threads per Block: 1024
+Max Block Dimensions: (1024, 1024, 64)
+Max Grid Dimensions: (2147483647, 65535, 65535)
+Warp Size: 32
+
+=== Memory Hierarchy ===
+L2 Cache Size: 6.00 MB
+Shared Memory per Block: 48.00 KB
+Shared Memory per SM: 96.00 KB
+Registers per Block: 65536
+Registers per SM: 65536
+Constant Memory: 64.00 KB
+
+=== Performance Characteristics ===
+Peak Memory Bandwidth: 898.0 GB/s
+Estimated FP32 Peak TFLOPS: 14.13 TFLOPS
+Base Clock Rate: 1.38 GHz
+TensorCore Architecture: Volta
+TensorCore FP16 Peak TFLOPS: 112.0 TFLOPS
+TensorCore Speedup vs FP32: 7.9x
+
+=== Feature Support ===
+Concurrent Kernels: Yes
+ECC Enabled: Yes
+Unified Addressing: Yes
+Managed Memory: Yes
+Cooperative Launch: Yes
+TensorCore Support: Yes (Compute 7.0)
+
+=== Arithmetic Intensity Analysis ===
+FP32 Ridge Point: 15.74 FLOPS/Byte
+  (Workloads with AI > 15.74 are compute-bound)
+

@@ -1,0 +1,405 @@
+========================================================================
+                    PHASE 1: COMPLETE BASELINE ANALYSIS                
+========================================================================
+
+This script will:
+  1. Collect GPU specifications
+  2. Run GEMM benchmarks (Lab-1, cuBLAS)
+  3. Profile Lab-1 kernel with Nsight Compute
+  4. Run CUTLASS benchmarks
+  5. Generate comprehensive analysis and visualizations
+
+Thu Dec 11 12:52:52 AM EST 2025
+
+========================================================================
+STEP 1: Building Project
+========================================================================
+-- The CXX compiler identification is GNU 13.3.0
+-- The CUDA compiler identification is NVIDIA 12.8.93
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Detecting CUDA compiler ABI info
+-- Detecting CUDA compiler ABI info - done
+-- Check for working CUDA compiler: /usr/local/cuda/bin/nvcc - skipped
+-- Detecting CUDA compile features
+-- Detecting CUDA compile features - done
+-- Found CUDAToolkit: /usr/local/cuda/targets/x86_64-linux/include (found version "12.8.93") 
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- Configuring done (3.3s)
+-- Generating done (0.1s)
+-- Build files have been written to: /scratch/sz4972/GEMM-Optimization/build
+[ 33%] Building CUDA object CMakeFiles/benchmark_gemm.dir/src/benchmark_gemm.cu.o
+[ 50%] Building CUDA object CMakeFiles/gpu_specs.dir/src/gpu_specs.cu.o
+[ 50%] Building CUDA object CMakeFiles/cublas_bench.dir/src/baselines/cublas_bench.cu.o
+nvcc warning : Support for offline compilation for architectures prior to '<compute/sm/lto>_75' will be removed in a future release (Use -Wno-deprecated-gpu-targets to suppress warning).
+nvcc warning : Support for offline compilation for architectures prior to '<compute/sm/lto>_75' will be removed in a future release (Use -Wno-deprecated-gpu-targets to suppress warning).
+nvcc warning : Support for offline compilation for architectures prior to '<compute/sm/lto>_75' will be removed in a future release (Use -Wno-deprecated-gpu-targets to suppress warning).
+[ 66%] Linking CUDA executable gpu_specs
+[ 66%] Built target gpu_specs
+[ 83%] Linking CUDA executable cublas_bench
+[ 83%] Built target cublas_bench
+[100%] Linking CUDA executable benchmark_gemm
+[100%] Built target benchmark_gemm
+✓ Build successful
+
+========================================================================
+STEP 2: GPU Specifications
+========================================================================
+========================================
+GPU Specifications Report
+Generated: Dec 11 2025 00:53:07
+========================================
+
+========================================
+Device 0: NVIDIA H100 80GB HBM3
+========================================
+
+=== Basic Information ===
+Compute Capability: 9.0
+Total Global Memory: 79.11 GB
+Memory Clock Rate: 2619.00 MHz
+Memory Bus Width: 5120 bits
+
+=== Compute Resources ===
+Number of SMs: 132
+CUDA Cores: 16896 (total)
+CUDA Cores per SM: 128
+Max Threads per SM: 2048
+Max Threads per Block: 1024
+Max Block Dimensions: (1024, 1024, 64)
+Max Grid Dimensions: (2147483647, 65535, 65535)
+Warp Size: 32
+
+=== Memory Hierarchy ===
+L2 Cache Size: 50.00 MB
+Shared Memory per Block: 48.00 KB
+Shared Memory per SM: 228.00 KB
+Registers per Block: 65536
+Registers per SM: 65536
+Constant Memory: 64.00 KB
+
+=== Performance Characteristics ===
+Peak Memory Bandwidth: 3352.3 GB/s
+Estimated FP32 Peak TFLOPS: 66.91 TFLOPS
+Base Clock Rate: 1.98 GHz
+TensorCore Architecture: Hopper
+TensorCore FP16 Peak TFLOPS: 989.0 TFLOPS
+TensorCore Speedup vs FP32: 14.8x
+
+=== Feature Support ===
+Concurrent Kernels: Yes
+ECC Enabled: Yes
+Unified Addressing: Yes
+Managed Memory: Yes
+Cooperative Launch: Yes
+TensorCore Support: Yes (Compute 9.0)
+
+=== Arithmetic Intensity Analysis ===
+FP32 Ridge Point: 19.96 FLOPS/Byte
+  (Workloads with AI > 19.96 are compute-bound)
+  (Workloads with AI < 19.96 are memory-bound)
+
+✓ Results saved to results/gpu_specs.txt
+✓ GPU specs collected
+
+========================================================================
+STEP 3: GEMM Benchmarks (Lab-1, cuBLAS)
+========================================================================
+This may take 30-60 minutes...
+
+GEMM Benchmark Suite
+====================
+
+GPU: NVIDIA H100 80GB HBM3
+Compute Capability: 9.0
+
+         Kernel   DType     M     N     K    Time(ms)      GFLOPSBandwidth(GB/s)
+--------------------------------------------------------------------------------
+
+Testing M=128, N=128, K=128
+     Lab1_Tiled    FP32   128   128   128       0.007      615.07          28.83
+   cuBLAS_SGEMM    FP32   128   128   128       0.006      676.15          31.69
+cuBLAS_HGEMM_TensorCore    FP16   128   128   128       0.004      986.99          23.13
+Lab2_TensorCore    FP16   128   128   128       0.022      193.54           4.54
+Lab2_TensorCore_Optimized    FP16   128   128   128       0.021      204.13           4.78
+
+Testing M=256, N=256, K=256
+     Lab1_Tiled    FP32   256   256   256       0.011     3031.88          71.06
+   cuBLAS_SGEMM    FP32   256   256   256       0.009     3564.16          83.54
+cuBLAS_HGEMM_TensorCore    FP16   256   256   256       0.004     7651.05          89.66
+Lab2_TensorCore    FP16   256   256   256       0.038      889.30          10.42
+Lab2_TensorCore_Optimized    FP16   256   256   256       0.035      962.53          11.28
+
+Testing M=512, N=512, K=512
+     Lab1_Tiled    FP32   512   512   512       0.034     7962.23          93.31
+   cuBLAS_SGEMM    FP32   512   512   512       0.016    17249.86         202.15
+cuBLAS_HGEMM_TensorCore    FP16   512   512   512       0.006    46955.55         275.13
+Lab2_TensorCore    FP16   512   512   512       0.070     3831.29          22.45
+Lab2_TensorCore_Optimized    FP16   512   512   512       0.068     3936.56          23.07
+
+Testing M=1024, N=1024, K=1024
+     Lab1_Tiled    FP32  1024  1024  1024       0.239     9001.44          52.74
+   cuBLAS_SGEMM    FP32  1024  1024  1024       0.057    37684.67         220.81
+cuBLAS_HGEMM_TensorCore    FP16  1024  1024  1024       0.011   192509.65         563.99
+Lab2_TensorCore    FP16  1024  1024  1024       0.227     9455.35          27.70
+Lab2_TensorCore_Optimized    FP16  1024  1024  1024       0.262     8183.21          23.97
+
+Testing M=2048, N=2048, K=2048
+     Lab1_Tiled    FP32  2048  2048  2048       1.872     9174.98          26.88
+   cuBLAS_SGEMM    FP32  2048  2048  2048       0.342    50263.87         147.26
+cuBLAS_HGEMM_TensorCore    FP16  2048  2048  2048       0.028   609180.64         892.35
+Lab2_TensorCore    FP16  2048  2048  2048       1.812     9478.91          13.89
+Lab2_TensorCore_Optimized    FP16  2048  2048  2048       2.096     8198.19          12.01
+
+Testing M=4096, N=4096, K=4096
+     Lab1_Tiled    FP32  4096  4096  4096      15.303     8981.09          13.16
+   cuBLAS_SGEMM    FP32  4096  4096  4096       2.653    51803.86          75.88
+cuBLAS_HGEMM_TensorCore    FP16  4096  4096  4096       0.170   806407.57         590.63
+Lab2_TensorCore    FP16  4096  4096  4096      13.443    10223.51           7.49
+Lab2_TensorCore_Optimized    FP16  4096  4096  4096      15.577     8823.19           6.46
+
+Testing M=8192, N=8192, K=8192
+     Lab1_Tiled    FP32  8192  8192  8192     121.245     9068.51           6.64
+   cuBLAS_SGEMM    FP32  8192  8192  8192      21.256    51726.31          37.89
+cuBLAS_HGEMM_TensorCore    FP16  8192  8192  8192       1.360   808642.33         296.13
+Lab2_TensorCore    FP16  8192  8192  8192     107.176    10258.92           3.76
+Lab2_TensorCore_Optimized    FP16  8192  8192  8192     124.864     8805.68           3.22
+
+Testing M=4096, N=256, K=1024
+     Lab1_Tiled    FP32  4096   256  1024       0.240     8956.98          91.84
+   cuBLAS_SGEMM    FP32  4096   256  1024       0.058    36823.43         377.58
+cuBLAS_HGEMM_TensorCore    FP16  4096   256  1024       0.010   225917.74        1158.27
+Lab2_TensorCore    FP16  4096   256  1024       0.236     9094.20          46.63
+Lab2_TensorCore_Optimized    FP16  4096   256  1024       0.266     8058.61          41.32
+
+Testing M=1024, N=4096, K=512
+     Lab1_Tiled    FP32  1024  4096   512       0.473     9072.17          57.59
+   cuBLAS_SGEMM    FP32  1024  4096   512       0.092    46478.31         295.03
+cuBLAS_HGEMM_TensorCore    FP16  1024  4096   512       0.014   316029.50        1003.02
+Lab2_TensorCore    FP16  1024  4096   512       0.470     9131.48          28.98
+Lab2_TensorCore_Optimized    FP16  1024  4096   512       0.543     7903.34          25.08
+
+Testing M=2048, N=512, K=2048
+     Lab1_Tiled    FP32  2048   512  2048       0.476     9026.20          52.89
+   cuBLAS_SGEMM    FP32  2048   512  2048       0.099    43450.22         254.59
+cuBLAS_HGEMM_TensorCore    FP16  2048   512  2048       0.016   271888.45         796.55
+Lab2_TensorCore    FP16  2048   512  2048       0.453     9471.86          27.75
+Lab2_TensorCore_Optimized    FP16  2048   512  2048       0.516     8316.20          24.36
+
+Testing M=512, N=2048, K=512
+     Lab1_Tiled    FP32   512  2048   512       0.122     8835.23          77.65
+   cuBLAS_SGEMM    FP32   512  2048   512       0.031    34921.61         306.93
+cuBLAS_HGEMM_TensorCore    FP16   512  2048   512       0.007   150637.18         661.98
+Lab2_TensorCore    FP16   512  2048   512       0.119     9011.17          39.60
+Lab2_TensorCore_Optimized    FP16   512  2048   512       0.136     7887.37          34.66
+Results saved to results/benchmark_results.csv
+
+Benchmark completed!
+
+================================================================================
+VALIDATING TENSORCORE CORRECTNESS
+================================================================================
+
+=== Validating TensorCore Correctness ===
+Matrix size: 128x128x128
+Max absolute difference: 0.04
+Max relative difference: 0.00
+Total mismatches: 0 / 16384
+✓ Validation PASSED (tolerance: 0.01)
+
+=== Validating TensorCore Correctness ===
+Matrix size: 512x512x512
+Max absolute difference: 0.37
+Max relative difference: 0.00
+Total mismatches: 0 / 262144
+✓ Validation PASSED (tolerance: 0.01)
+
+=== Validating TensorCore Correctness ===
+Matrix size: 1024x1024x1024
+Max absolute difference: 1.24
+Max relative difference: 0.00
+Total mismatches: 0 / 1048576
+✓ Validation PASSED (tolerance: 0.01)
+
+================================================================================
+VALIDATION SUMMARY: 3 / 3 tests passed
+================================================================================
+✓ Benchmarks complete
+
+========================================================================
+STEP 4: Nsight Compute Profiling
+========================================================================
+Profiling Lab-1 kernel for key matrix sizes...
+
+Building profiling executable...
+-- The CXX compiler identification is GNU 13.3.0
+-- The CUDA compiler identification is NVIDIA 12.8.93
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Detecting CUDA compiler ABI info
+-- Detecting CUDA compiler ABI info - done
+-- Check for working CUDA compiler: /usr/local/cuda/bin/nvcc - skipped
+-- Detecting CUDA compile features
+-- Detecting CUDA compile features - done
+-- Found CUDAToolkit: /usr/local/cuda/targets/x86_64-linux/include (found version "12.8.93") 
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- Configuring done (2.3s)
+-- Generating done (0.0s)
+-- Build files have been written to: /scratch/sz4972/GEMM-Optimization/build_profile
+[ 50%] Building CUDA object CMakeFiles/benchmark_gemm.dir/src/benchmark_gemm.cu.o
+nvcc warning : Support for offline compilation for architectures prior to '<compute/sm/lto>_75' will be removed in a future release (Use -Wno-deprecated-gpu-targets to suppress warning).
+[100%] Linking CUDA executable benchmark_gemm
+[100%] Built target benchmark_gemm
+Profiling 512x512x512...
+✓ Validation PASSED (tolerance: 0.01)
+
+=== Validating TensorCore Correctness ===
+Matrix size: 512x512x512
+Max absolute difference: 0.37
+Max relative difference: 0.00
+Total mismatches: 0 / 262144
+✓ Validation PASSED (tolerance: 0.01)
+
+=== Validating TensorCore Correctness ===
+Matrix size: 1024x1024x1024
+Max absolute difference: 1.24
+Max relative difference: 0.00
+Total mismatches: 0 / 1048576
+✓ Validation PASSED (tolerance: 0.01)
+
+================================================================================
+VALIDATION SUMMARY: 3 / 3 tests passed
+================================================================================
+==PROF== Disconnected from process 2879959
+  ✗ Profiling 512 failed
+  Check results/profiling/profiling_512.log for details
+Profiling 2048x2048x2048...
+✓ Validation PASSED (tolerance: 0.01)
+
+=== Validating TensorCore Correctness ===
+Matrix size: 512x512x512
+Max absolute difference: 0.37
+Max relative difference: 0.00
+Total mismatches: 0 / 262144
+✓ Validation PASSED (tolerance: 0.01)
+
+=== Validating TensorCore Correctness ===
+Matrix size: 1024x1024x1024
+Max absolute difference: 1.24
+Max relative difference: 0.00
+Total mismatches: 0 / 1048576
+✓ Validation PASSED (tolerance: 0.01)
+
+================================================================================
+VALIDATION SUMMARY: 3 / 3 tests passed
+================================================================================
+==PROF== Disconnected from process 2880009
+  ✗ Profiling 2048 failed
+  Check results/profiling/profiling_2048.log for details
+Profiling 4096x4096x4096...
+✓ Validation PASSED (tolerance: 0.01)
+
+=== Validating TensorCore Correctness ===
+Matrix size: 512x512x512
+Max absolute difference: 0.37
+Max relative difference: 0.00
+Total mismatches: 0 / 262144
+✓ Validation PASSED (tolerance: 0.01)
+
+=== Validating TensorCore Correctness ===
+Matrix size: 1024x1024x1024
+Max absolute difference: 1.24
+Max relative difference: 0.00
+Total mismatches: 0 / 1048576
+✓ Validation PASSED (tolerance: 0.01)
+
+================================================================================
+VALIDATION SUMMARY: 3 / 3 tests passed
+================================================================================
+==PROF== Disconnected from process 2880080
+  ✗ Profiling 4096 failed
+  Check results/profiling/profiling_4096.log for details
+✓ Profiling step complete
+
+========================================================================
+STEP 5: CUTLASS Benchmarks
+========================================================================
+Initializing CUTLASS submodule...
+Detected GPU compute capability: 90
+Running CUTLASS benchmarks...
+terminate called after throwing an instance of 'std::runtime_error'
+  what():  Failed to query occupancy.
+/bin/bash: line 151: 2880134 Aborted                 (core dumped) $PROF --operation=gemm --providers=cutlass --m=128,256,512,1024,2048,4096,8192 --n=128,256,512,1024,2048,4096,8192 --k=128,256,512,1024,2048,4096,8192 --precision=f32 --accumulator-type=f32 --disposition=equal --output=results/cutlass/cutlass_fp32.csv 2>&1
+     2880135 Done                    | tail -20
+✗ FP32 benchmarks failed
+
+Wrote results to 'results/cutlass/cutlass_f16tc.gemm.csv'
+✓ FP16 TensorCore benchmarks complete
+✓ CUTLASS benchmarks complete
+
+========================================================================
+STEP 6: Generating Analysis and Visualizations
+========================================================================
+Parsed GPU specs from file:
+  FP32 Peak: 66910.0 GFLOPS
+  FP16 Peak: 989000.0 GFLOPS
+  Bandwidth: 3352.3 GB/s
+
+Loaded 55 benchmark results
+Kernels tested: Lab1_Tiled, cuBLAS_SGEMM, cuBLAS_HGEMM_TensorCore, Lab2_TensorCore, Lab2_TensorCore_Optimized
+Matrix sizes: 11
+
+Generating analysis...
+Roofline plot (size vs GFLOPS) saved to results/performance_plot.png
+Performance comparison saved to results/performance_comparison.png
+Analysis report saved to results/analysis_report.txt
+
+Analysis complete!
+Generated files:
+  - results/performance_plot.png
+  - results/performance_comparison.png
+  - results/analysis_report.txt
+No profiling data found, skipping Nsight analysis
+
+✓ Analysis complete and Phase 1 files renamed
+
+========================================================================
+PHASE 1 COMPLETE!
+========================================================================
+
+Generated Files:
+  GPU Specifications:
+    • results/gpu_specs_phase1.txt
+
+  Benchmark Results:
+    • results/benchmark_results_phase1.csv
+    • results/cutlass/ (CUTLASS results)
+
+  Profiling Data:
+    • (Profiling data not available)
+
+  Analysis & Visualizations:
+    • results/performance_plot_phase1.png
+    • results/performance_comparison_phase1.png
+    • results/analysis_report_phase1.txt
+
+Next Steps:
+  1. Review results/analysis_report_phase1.txt for optimization opportunities
+  2. Compare against cuBLAS and CUTLASS baselines
+  3. Proceed to Phase 2 optimizations
+
+
+========================================================================
+ALL JOBS COMPLETED!
+========================================================================
+Thu Dec 11 12:54:25 AM EST 2025

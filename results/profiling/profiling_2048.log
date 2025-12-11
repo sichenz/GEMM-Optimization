@@ -1,0 +1,120 @@
+GEMM Benchmark Suite
+====================
+
+==PROF== Connected to process 2880009 (/scratch/sz4972/GEMM-Optimization/build_profile/benchmark_gemm)
+GPU: NVIDIA H100 80GB HBM3
+Compute Capability: 9.0
+
+         Kernel   DType     M     N     K    Time(ms)      GFLOPSBandwidth(GB/s)
+--------------------------------------------------------------------------------
+
+Testing M=128, N=128, K=128
+==ERROR== ERR_NVGPUCTRPERM - The user does not have permission to access NVIDIA GPU Performance Counters on the target device 0. For instructions on enabling permissions and to get more information see https://developer.nvidia.com/ERR_NVGPUCTRPERM
+     Lab1_Tiled    FP32   128   128   128       0.177       23.65           1.11
+   cuBLAS_SGEMM    FP32   128   128   128       0.036      116.42           5.46
+cuBLAS_HGEMM_TensorCore    FP16   128   128   128       0.041      101.87           2.39
+Lab2_TensorCore    FP16   128   128   128       0.036      115.83           2.71
+Lab2_TensorCore_Optimized    FP16   128   128   128       0.036      116.57           2.73
+
+Testing M=256, N=256, K=256
+     Lab1_Tiled    FP32   256   256   256       0.176      190.81           4.47
+   cuBLAS_SGEMM    FP32   256   256   256       0.088      380.40           8.92
+cuBLAS_HGEMM_TensorCore    FP16   256   256   256       0.041      818.69           9.59
+Lab2_TensorCore    FP16   256   256   256       0.053      627.46           7.35
+Lab2_TensorCore_Optimized    FP16   256   256   256       0.051      657.06           7.70
+
+Testing M=512, N=512, K=512
+     Lab1_Tiled    FP32   512   512   512       0.179     1500.07          17.58
+   cuBLAS_SGEMM    FP32   512   512   512       0.085     3148.58          36.90
+cuBLAS_HGEMM_TensorCore    FP16   512   512   512       0.044     6161.98          36.11
+Lab2_TensorCore    FP16   512   512   512       0.086     3123.38          18.30
+Lab2_TensorCore_Optimized    FP16   512   512   512       0.085     3163.72          18.54
+
+Testing M=1024, N=1024, K=1024
+     Lab1_Tiled    FP32  1024  1024  1024       0.246     8745.82          51.25
+   cuBLAS_SGEMM    FP32  1024  1024  1024       0.058    36794.16         215.59
+cuBLAS_HGEMM_TensorCore    FP16  1024  1024  1024       0.115    18637.21          54.60
+Lab2_TensorCore    FP16  1024  1024  1024       0.244     8785.03          25.74
+Lab2_TensorCore_Optimized    FP16  1024  1024  1024       0.281     7646.99          22.40
+
+Testing M=2048, N=2048, K=2048
+     Lab1_Tiled    FP32  2048  2048  2048       1.877     9155.05          26.82
+   cuBLAS_SGEMM    FP32  2048  2048  2048       0.343    50063.96         146.67
+cuBLAS_HGEMM_TensorCore    FP16  2048  2048  2048       0.116   148719.76         217.85
+Lab2_TensorCore    FP16  2048  2048  2048       1.831     9384.28          13.75
+Lab2_TensorCore_Optimized    FP16  2048  2048  2048       2.111     8137.69          11.92
+
+Testing M=4096, N=4096, K=4096
+     Lab1_Tiled    FP32  4096  4096  4096      15.316     8973.29          13.14
+   cuBLAS_SGEMM    FP32  4096  4096  4096       2.660    51674.06          75.69
+cuBLAS_HGEMM_TensorCore    FP16  4096  4096  4096       0.177   776182.50         568.49
+Lab2_TensorCore    FP16  4096  4096  4096      13.604    10102.74           7.40
+Lab2_TensorCore_Optimized    FP16  4096  4096  4096      15.703     8752.43           6.41
+
+Testing M=8192, N=8192, K=8192
+     Lab1_Tiled    FP32  8192  8192  8192     121.268     9066.82           6.64
+   cuBLAS_SGEMM    FP32  8192  8192  8192      21.258    51721.96          37.88
+cuBLAS_HGEMM_TensorCore    FP16  8192  8192  8192       1.386   793128.14         290.45
+Lab2_TensorCore    FP16  8192  8192  8192     107.136    10262.81           3.76
+Lab2_TensorCore_Optimized    FP16  8192  8192  8192     124.834     8807.76           3.23
+
+Testing M=4096, N=256, K=1024
+     Lab1_Tiled    FP32  4096   256  1024       0.249     8616.18          88.35
+   cuBLAS_SGEMM    FP32  4096   256  1024       0.091    23584.62         241.83
+cuBLAS_HGEMM_TensorCore    FP16  4096   256  1024       0.043    49954.49         256.11
+Lab2_TensorCore    FP16  4096   256  1024       0.251     8542.70          43.80
+Lab2_TensorCore_Optimized    FP16  4096   256  1024       0.283     7578.98          38.86
+
+Testing M=1024, N=4096, K=512
+     Lab1_Tiled    FP32  1024  4096   512       0.482     8914.12          56.58
+   cuBLAS_SGEMM    FP32  1024  4096   512       0.094    45769.05         290.53
+cuBLAS_HGEMM_TensorCore    FP16  1024  4096   512       0.115    37438.18         118.82
+Lab2_TensorCore    FP16  1024  4096   512       0.485     8849.50          28.09
+Lab2_TensorCore_Optimized    FP16  1024  4096   512       0.566     7582.07          24.06
+
+Testing M=2048, N=512, K=2048
+     Lab1_Tiled    FP32  2048   512  2048       0.481     8929.39          52.32
+   cuBLAS_SGEMM    FP32  2048   512  2048       0.101    42432.34         248.63
+cuBLAS_HGEMM_TensorCore    FP16  2048   512  2048       0.115    37396.45         109.56
+Lab2_TensorCore    FP16  2048   512  2048       0.472     9105.96          26.68
+Lab2_TensorCore_Optimized    FP16  2048   512  2048       0.537     8000.20          23.44
+
+Testing M=512, N=2048, K=512
+     Lab1_Tiled    FP32   512  2048   512       0.191     5631.45          49.50
+   cuBLAS_SGEMM    FP32   512  2048   512       0.036    29846.06         262.32
+cuBLAS_HGEMM_TensorCore    FP16   512  2048   512       0.043    25033.15         110.01
+Lab2_TensorCore    FP16   512  2048   512       0.135     7949.97          34.94
+Lab2_TensorCore_Optimized    FP16   512  2048   512       0.154     6980.76          30.68
+Results saved to results/benchmark_results.csv
+
+Benchmark completed!
+
+================================================================================
+VALIDATING TENSORCORE CORRECTNESS
+================================================================================
+
+=== Validating TensorCore Correctness ===
+Matrix size: 128x128x128
+Max absolute difference: 0.04
+Max relative difference: 0.00
+Total mismatches: 0 / 16384
+✓ Validation PASSED (tolerance: 0.01)
+
+=== Validating TensorCore Correctness ===
+Matrix size: 512x512x512
+Max absolute difference: 0.37
+Max relative difference: 0.00
+Total mismatches: 0 / 262144
+✓ Validation PASSED (tolerance: 0.01)
+
+=== Validating TensorCore Correctness ===
+Matrix size: 1024x1024x1024
+Max absolute difference: 1.24
+Max relative difference: 0.00
+Total mismatches: 0 / 1048576
+✓ Validation PASSED (tolerance: 0.01)
+
+================================================================================
+VALIDATION SUMMARY: 3 / 3 tests passed
+================================================================================
+==PROF== Disconnected from process 2880009

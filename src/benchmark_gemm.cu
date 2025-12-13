@@ -800,11 +800,11 @@ int main() {
             }
             
             // High-performance version (8 warps, larger tiles, optimized memory access)
-            std::cerr << "[DEBUG] About to call HighPerf for M=" << M << " N=" << N << " K=" << K << std::endl;
+            std::cout << "[DEBUG] About to call HighPerf for M=" << M << " N=" << N << " K=" << K << std::endl;
             try {
-                std::cerr << "[DEBUG] Starting HighPerf benchmark for M=" << M << " N=" << N << " K=" << K << std::endl;
+                std::cout << "[DEBUG] Starting HighPerf benchmark for M=" << M << " N=" << N << " K=" << K << std::endl;
                 auto result = benchmarkTensorCoreHighPerfGEMM(M, N, K, warmup_iters, bench_iters);
-                std::cerr << "[DEBUG] HighPerf benchmark completed, GFLOPS=" << result.gflops << std::endl;
+                std::cout << "[DEBUG] HighPerf benchmark completed, GFLOPS=" << result.gflops << std::endl;
                 printResult(result, std::cout);
                 all_results.push_back(result);
             } catch (const std::exception& e) {

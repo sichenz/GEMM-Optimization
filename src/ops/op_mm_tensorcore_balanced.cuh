@@ -164,8 +164,7 @@ __global__ void op_mm_tensorcore_balanced_kernel(
             int row = m + i;
             int col = n + j;
             if (row < C.h && col < C.w) {
-                C.rawp[C_base + row * C_stride_h + col * C_stride_w] = 
-                    static_cast<T>(smem_c[warpId][elem_idx]);
+                Index(C, row, col) = static_cast<T>(smem_c[warpId][elem_idx]);
             }
         }
     }

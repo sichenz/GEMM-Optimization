@@ -800,6 +800,7 @@ int main() {
             }
             
             // High-performance version (8 warps, larger tiles, optimized memory access)
+            std::cerr << "[DEBUG] About to call HighPerf for M=" << M << " N=" << N << " K=" << K << std::endl;
             try {
                 std::cerr << "[DEBUG] Starting HighPerf benchmark for M=" << M << " N=" << N << " K=" << K << std::endl;
                 auto result = benchmarkTensorCoreHighPerfGEMM(M, N, K, warmup_iters, bench_iters);

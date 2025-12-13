@@ -16,6 +16,8 @@
 #include "ops/op_mm_tensorcore_large_tile.cuh"
 #include "ops/op_mm_tensorcore_high_perf.cuh"
 #include "ops/op_mm_tensorcore_aggressive.cuh"
+#include "ops/op_mm_tensorcore_ultra.cuh"
+#include "ops/op_mm_tensorcore_64x64.cuh"
 // Note: op_mm_tensorcore_3stage.cuh disabled due to performance issues
 #include "ops/op_elemwise.cuh"
 
@@ -612,6 +614,59 @@ BenchmarkResult benchmarkTensorCoreLargeTileGEMM(int M, int N, int K, int warmup
     return result;
 }
 
+// Benchmark ultra-optimized TensorCore GEMM (minimal overhead)
+BenchmarkResult benchmarkTensorCoreUltraGEMM(int M, int N, int K, int warmup_iters, int bench_iters) {
+    Tensor<__half> A{M, K, true};
+    Tensor<__half> B{K, N, true};
+    Tensor<float> C{M, N, true};
+    
+    CUDA_OK(cudaMemset(C.rawp, 0, M * N * sizeof(float)));
+    
+    Tensor<float> A_fp32{M, K, true};
+    Tensor<float> B_fp32{K, N, true};
+    
+    curandGenerator_t gen;
+    curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT);
+    curandSetPseudoRandomGeneratorSeed(gen, 12345);
+    curandGenerateUniform(gen, A_fp32.rawp, M * K);
+    curandGenerateUniform(gen, B_fp32.rawp, K * N);
+    
+    int threads = 256;
+    int blocks_A = (M * K + threads - 1) / threads;
+    int blocks_B = (K * N + threads - 1) / threads;
+    convert_fp32_to_fp16_kernel<<<blocks_A, threads>>>(A_fp32.rawp, A.rawp, M * K);
+    convert_fp32_to_fp16_kernel<<<blocks_B, threads>>>(B_fp32.rawp, B.rawp, K * N);
+    CUDA_OK(cudaDeviceSynchronize());
+    
+    CudaTimer timer;
+    
+    for (int i = 0; i < warmup_iters; i++) {
+        op_mm_tensorcore_ultra(A, B, C);
+    }
+    CUDA_OK(cudaDeviceSynchronize());
+    
+    timer.start();
+    for (int i = 0; i < bench_iters; i++) {
+        op_mm_tensorcore_ultra(A, B, C);
+    }
+    CUDA_OK(cudaDeviceSynchronize());
+    float time_ms = timer.stop() / bench_iters;
+    
+    BenchmarkResult result;
+    result.M = M;
+    result.N = N;
+    result.K = K;
+    result.time_ms = time_ms;
+    result.gflops = calculateGFLOPS(M, N, K, time_ms);
+    result.bandwidth_gb_s = calculateBandwidth(M, N, K, time_ms, sizeof(__half));
+    result.kernel_name = "Lab2_TensorCore_Ultra";
+    result.dtype = "FP16";
+    
+    curandDestroyGenerator(gen);
+    
+    return result;
+}
+
 // Validate our TensorCore kernel against cuBLAS
 bool validateTensorCoreCorrectness(int M, int N, int K, float tolerance = 1e-3f) {
     std::cout << "\nValidating TensorCore Correctness" << std::endl;
@@ -879,6 +934,32 @@ int main() {
                           << ": " << e.what() << std::endl;
             } catch (...) {
                 std::cerr << "Aggressive TensorCore GEMM failed for M=" << M << " N=" << N << " K=" << K 
+                          << ": Unknown error" << std::endl;
+            }
+            
+            // Ultra-optimized version (minimal overhead)
+            try {
+                auto result = benchmarkTensorCoreUltraGEMM(M, N, K, warmup_iters, bench_iters);
+                printResult(result, std::cout);
+                all_results.push_back(result);
+            } catch (const std::exception& e) {
+                std::cerr << "Ultra TensorCore GEMM failed for M=" << M << " N=" << N << " K=" << K 
+                          << ": " << e.what() << std::endl;
+            } catch (...) {
+                std::cerr << "Ultra TensorCore GEMM failed for M=" << M << " N=" << N << " K=" << K 
+                          << ": Unknown error" << std::endl;
+            }
+            
+            // 64×64 tile version (16 warps, larger tiles)
+            try {
+                auto result = benchmarkTensorCore64x64GEMM(M, N, K, warmup_iters, bench_iters);
+                printResult(result, std::cout);
+                all_results.push_back(result);
+            } catch (const std::exception& e) {
+                std::cerr << "64×64 TensorCore GEMM failed for M=" << M << " N=" << N << " K=" << K 
+                          << ": " << e.what() << std::endl;
+            } catch (...) {
+                std::cerr << "64×64 TensorCore GEMM failed for M=" << M << " N=" << N << " K=" << K 
                           << ": Unknown error" << std::endl;
             }
         }

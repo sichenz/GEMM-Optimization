@@ -39,7 +39,7 @@ target_link_libraries(gpu_specs PRIVATE
 add_executable(benchmark_gemm src/benchmark_gemm.cu)
 # FIXED: Support V100 (compute 7.0) instead of only 7.5
 set_target_properties(benchmark_gemm PROPERTIES 
-    CUDA_ARCHITECTURES "70;75")
+    CUDA_ARCHITECTURES "70;75;80;90")
 target_compile_options(benchmark_gemm PRIVATE
     -Wno-unused-function
     --expt-relaxed-constexpr

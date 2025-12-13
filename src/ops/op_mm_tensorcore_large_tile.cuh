@@ -40,9 +40,9 @@ __global__ void op_mm_tensorcore_large_tile_kernel(
     __shared__ __half smem_a[4][WMMA_M * WMMA_K + 8];
     __shared__ __half smem_b[4][WMMA_K * WMMA_N + 8];
     
-    // Fragments
-    wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, __half, wmma::row_major> frag_a[2];
-    wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, __half, wmma::col_major> frag_b[2];
+    // Fragments (single, not array since no double buffering)
+    wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, __half, wmma::row_major> frag_a;
+    wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, __half, wmma::col_major> frag_b;
     wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> frag_c;
     
     wmma::fill_fragment(frag_c, 0.0f);

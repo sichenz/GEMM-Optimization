@@ -51,15 +51,15 @@ echo ''
 echo 'Step 2: Profile Our TensorCore Kernel'
 echo ''
 
-# Profile our optimized kernel
+# Profile our Balanced kernel (best performer)
 ncu --set full \
     --kernel-name-base function \
-    --kernel-name 'op_mm_tensorcore_optimized_kernel' \
+    --kernel-name 'op_mm_tensorcore_balanced_kernel' \
     --launch-skip 2 \
     --launch-count 1 \
     --target-processes all \
-    --export results/profiling/our_kernel_4096.ncu-rep \
-    ./build/benchmark_gemm 2>&1 | tee logs/profile_our_kernel.log
+    --export results/profiling/balanced_kernel_4096.ncu-rep \
+    ./build/benchmark_gemm 2>&1 | tee logs/profile_balanced_kernel.log
 
 echo 'Our kernel profiled'
 echo ''
@@ -87,7 +87,7 @@ echo ''
 echo 'Profiling Complete'
 echo ''
 echo 'Generated files:'
-echo '  results/profiling/our_kernel_4096.ncu-rep'
+echo '  results/profiling/balanced_kernel_4096.ncu-rep'
 echo '  results/profiling/cutlass_4096.txt (if available)'
 echo ''
 "

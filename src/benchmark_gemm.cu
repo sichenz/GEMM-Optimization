@@ -1006,7 +1006,11 @@ int main() {
                 std::cerr << "Optimized TensorCore GEMM failed: " << e.what() << std::endl;
             }
             
-            // Large tile version
+            // Optimized version (8 warps, larger tiles) - kept to show optimization journey
+            // This shows why Balanced (4 warps) works better - register pressure issue
+            
+            // Large tile version - REMOVED (redundant, didn't improve performance)
+            /*
             try {
                 auto result = benchmarkTensorCoreLargeTileGEMM(M, N, K, warmup_iters, bench_iters);
                 printResult(result, std::cout);
@@ -1014,63 +1018,53 @@ int main() {
             } catch (const std::exception& e) {
                 std::cerr << "Large Tile TensorCore GEMM failed: " << e.what() << std::endl;
             }
+            */
             
-            // High-performance version (8 warps, larger tiles, optimized memory access)
-            std::cout << "[DEBUG] About to call HighPerf for M=" << M << " N=" << N << " K=" << K << std::endl;
+            // High-performance version - REMOVED (similar to Optimized, redundant)
+            /*
             try {
-                std::cout << "[DEBUG] Starting HighPerf benchmark for M=" << M << " N=" << N << " K=" << K << std::endl;
                 auto result = benchmarkTensorCoreHighPerfGEMM(M, N, K, warmup_iters, bench_iters);
-                std::cout << "[DEBUG] HighPerf benchmark completed, GFLOPS=" << result.gflops << std::endl;
                 printResult(result, std::cout);
                 all_results.push_back(result);
             } catch (const std::exception& e) {
-                std::cerr << "High-Perf TensorCore GEMM failed for M=" << M << " N=" << N << " K=" << K 
-                          << ": " << e.what() << std::endl;
-            } catch (...) {
-                std::cerr << "High-Perf TensorCore GEMM failed for M=" << M << " N=" << N << " K=" << K 
-                          << ": Unknown error" << std::endl;
+                std::cerr << "High-Perf TensorCore GEMM failed: " << e.what() << std::endl;
             }
+            */
             
-            // Aggressively optimized version (vectorized loads)
+            // Aggressively optimized version - REMOVED (didn't improve performance)
+            /*
             try {
                 auto result = benchmarkTensorCoreAggressiveGEMM(M, N, K, warmup_iters, bench_iters);
                 printResult(result, std::cout);
                 all_results.push_back(result);
             } catch (const std::exception& e) {
-                std::cerr << "Aggressive TensorCore GEMM failed for M=" << M << " N=" << N << " K=" << K 
-                          << ": " << e.what() << std::endl;
-            } catch (...) {
-                std::cerr << "Aggressive TensorCore GEMM failed for M=" << M << " N=" << N << " K=" << K 
-                          << ": Unknown error" << std::endl;
+                std::cerr << "Aggressive TensorCore GEMM failed: " << e.what() << std::endl;
             }
+            */
             
-            // Ultra-optimized version (minimal overhead)
+            // Ultra-optimized version - REMOVED (similar to others, redundant)
+            /*
             try {
                 auto result = benchmarkTensorCoreUltraGEMM(M, N, K, warmup_iters, bench_iters);
                 printResult(result, std::cout);
                 all_results.push_back(result);
             } catch (const std::exception& e) {
-                std::cerr << "Ultra TensorCore GEMM failed for M=" << M << " N=" << N << " K=" << K 
-                          << ": " << e.what() << std::endl;
-            } catch (...) {
-                std::cerr << "Ultra TensorCore GEMM failed for M=" << M << " N=" << N << " K=" << K 
-                          << ": Unknown error" << std::endl;
+                std::cerr << "Ultra TensorCore GEMM failed: " << e.what() << std::endl;
             }
+            */
             
-            // 64×64 tile version (16 warps, larger tiles)
+            // 64×64 tile version - REMOVED (larger tiles didn't help, shared memory issues)
+            /*
             try {
                 auto result = benchmarkTensorCore64x64GEMM(M, N, K, warmup_iters, bench_iters);
                 printResult(result, std::cout);
                 all_results.push_back(result);
             } catch (const std::exception& e) {
-                std::cerr << "64×64 TensorCore GEMM failed for M=" << M << " N=" << N << " K=" << K 
-                          << ": " << e.what() << std::endl;
-            } catch (...) {
-                std::cerr << "64×64 TensorCore GEMM failed for M=" << M << " N=" << N << " K=" << K 
-                          << ": Unknown error" << std::endl;
+                std::cerr << "64×64 TensorCore GEMM failed: " << e.what() << std::endl;
             }
+            */
             
-            // Balanced version (4 warps for better occupancy)
+            // Balanced version (4 warps for better occupancy) - BEST PERFORMER
             try {
                 auto result = benchmarkTensorCoreBalancedGEMM(M, N, K, warmup_iters, bench_iters);
                 printResult(result, std::cout);

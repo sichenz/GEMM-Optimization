@@ -1,12 +1,8 @@
 #pragma once
 
 // Aggressively optimized TensorCore GEMM
-// Key optimizations:
-// 1. Reduced register pressure for better occupancy
-// 2. Better pipelining with optimized synchronization
-// 3. Optimized memory access patterns with prefetching hints
-// 4. 8 warps, 64×32 output tiles
-// 5. Minimized conditional branches
+// Attempted various optimizations: reduced register pressure, better pipelining,
+// optimized memory access, 8 warps with 64×32 output tiles
 
 #include "utils/check_error.cuh"
 #include "utils/tensor.cuh"

@@ -1,6 +1,6 @@
 # GEMM Optimization Project
 
-High-performance General Matrix Multiply (GEMM) implementation and optimization study using GPU TensorCores on NYU Greene.
+High-performance General Matrix Multiply (GEMM) implementation using GPU TensorCores on NYU Greene.
 
 **Authors:** Sichen Zhong, Anh Dam  
 **Date:** December 2025  
@@ -8,13 +8,11 @@ High-performance General Matrix Multiply (GEMM) implementation and optimization 
 
 ---
 
-## Project Overview
+## Overview
 
-### Goal
-Develop and optimize high-performance GEMM kernels using GPU TensorCores via WMMA API, targeting 40-60% of cuBLAS TensorCore performance.
+This project implements and optimizes GEMM kernels using GPU TensorCores via the WMMA API. The goal was to achieve 40-60% of cuBLAS TensorCore performance, though we ended up at around 5-8% with our best kernel.
 
-### Motivation
-GEMM is the core operation in deep learning (neural networks, transformers) and accounts for 80-90% of training time in many ML workloads. TensorCores provide 5-7x speedup over regular FP32 computation, so understanding how to program and optimize these specialized units is essential for high-performance computing and machine learning applications.
+GEMM is the core operation in deep learning and accounts for most of the training time. TensorCores provide 5-7x speedup over regular FP32 computation, so learning to program them is important for high-performance computing.
 
 ---
 
@@ -23,115 +21,92 @@ GEMM is the core operation in deep learning (neural networks, transformers) and 
 ```
 GEMM-Optimization/
 ├── src/
-│   ├── gpu_specs.cu              # GPU specifications collection
 │   ├── benchmark_gemm.cu          # Main benchmarking harness
-│   ├── generate_final_report.py  # Performance analysis and report generation
+│   ├── generate_final_report.py  # Performance report generation
 │   ├── roofline_analysis.py      # Roofline model visualization
 │   │
 │   ├── ops/                      # CUDA kernel implementations
 │   │   ├── op_mm.cuh            # Lab-1 tiled GEMM (FP32)
 │   │   ├── op_mm_tensorcore.cuh # TensorCore GEMM baseline
-│   │   ├── op_mm_tensorcore_optimized.cuh  # Optimized (2-stage pipeline)
-│   │   ├── op_mm_tensorcore_large_tile.cuh # Large tile variant
-│   │   └── op_elemwise.cuh      # Element-wise operations
+│   │   ├── op_mm_tensorcore_optimized.cuh  # Optimized version
+│   │   ├── op_mm_tensorcore_balanced.cuh   # Best performing kernel
+│   │   └── ...                  # Other optimization attempts
 │   │
 │   └── utils/                    # Utility headers
 │       ├── tensor.cuh           # Tensor data structure
-│       └── check_error.cuh      # CUDA error checking macros
+│       └── check_error.cuh      # CUDA error checking
 │
 ├── scripts/                      # SLURM job scripts
-│   ├── run_phase1_complete.sbatch  # Phase 1 comprehensive analysis
-│   └── run_phase4_final.sbatch     # Phase 4 final benchmarking
+│   ├── run_phase4_final.sbatch  # Final benchmarking
+│   └── profile_comparison.sbatch # Profiling scripts
 │
-├── CMakeLists.txt               # Build configuration
-└── README.md                    # This file
+├── results/                      # Benchmark results
+└── CMakeLists.txt               # Build configuration
 ```
 
 ---
 
-## Project Phases
+## Performance Results
 
-### Phase 1: Foundation & Benchmarking
+### Best Kernel: Balanced (Lab2_TensorCore_Balanced)
 
-In this phase, we established baselines and understood the hardware. We documented GPU specifications, benchmarked the Lab-1 tiled GEMM implementation, and established cuBLAS and CUTLASS performance baselines. We also generated roofline models to visualize performance characteristics.
+The Balanced kernel uses 4 warps per block instead of 8, which reduces register pressure and improves occupancy.
 
-**Key Results:**
-- Lab-1 Tiled: 1,400-2,000 GFLOPS (9-13% of FP32 peak)
-- cuBLAS SGEMM: 5,000-13,000 GFLOPS (33-87% of FP32 peak)
-- cuBLAS TensorCore: 50,000-90,000 GFLOPS (5-7x speedup over FP32)
+**Performance (4096×4096×4096):**
+- **Balanced**: 4,591 GFLOPS (**5.18%** of cuBLAS TensorCore)
+- HighPerf: 2,789 GFLOPS (3.15% of cuBLAS)
+- Optimized: 2,570 GFLOPS (2.90% of cuBLAS)
+- Baseline: 2,656 GFLOPS (3.00% of cuBLAS)
+- **cuBLAS TensorCore**: 88,621 GFLOPS (100% baseline)
 
-The main insight was that TensorCores provide significant speedup, and there's a lot of room for optimization in our baseline implementation.
+**Performance across sizes:**
+- 1024×1024: 4,589 GFLOPS (8.55% of cuBLAS)
+- 2048×2048: 4,844 GFLOPS (5.37% of cuBLAS)
+- 4096×4096: 4,591 GFLOPS (5.18% of cuBLAS)
+- 8192×8192: 4,524 GFLOPS (5.16% of cuBLAS)
 
-### Phase 2: TensorCore Implementation
+### Why Balanced Works Better
 
-This was the core implementation phase. We implemented TensorCore GEMM using the WMMA API with FP16 inputs and FP32 accumulation (mixed precision). The implementation uses 4 warps per block, with each warp computing a 16x16 output tile. Each block computes a 32x32 output using a 2x2 warp arrangement.
+The Balanced kernel uses 4 warps instead of 8, which:
+- Reduces register pressure → higher occupancy
+- Allows more blocks to run concurrently
+- Better GPU utilization
 
-**Key Results:**
-- Baseline TensorCore: 2,648 GFLOPS (2.93% of cuBLAS TensorCore)
-- Optimized (2-stage): 2,664 GFLOPS (2.94% of cuBLAS TensorCore)
-- Large Tile: 2,650 GFLOPS (2.93% of cuBLAS TensorCore)
-
-**Status:** The kernels are functionally correct and pass all validation tests, but performance optimization is still needed.
-
-**Challenges we faced:**
-- Learning the WMMA API was tricky - it requires shared memory (not local memory) and has strict layout requirements
-- Getting correctness right took several iterations - we had to fix warp organization, matrix transpose indexing, and output writing
-- Performance debugging was challenging - we prioritized correctness first, which meant using smaller, easier-to-debug tile sizes
-
-### Phase 3: CUTLASS Analysis
-
-We analyzed CUTLASS (NVIDIA's reference GEMM implementation) to understand how high-performance kernels are designed. This helped us identify why our performance was lower than target.
-
-**Key Findings:**
-- CUTLASS uses 128x128 block tiles (we use 32x32) - that's 4x larger
-- CUTLASS uses 3-5 stage pipelines (we use 2-stage)
-- CUTLASS uses 8 warps per block (we use 4)
-- The performance gap is primarily due to these architectural differences, not just missing optimizations
-
-**What this means:** To reach the target performance, we'd need to make fundamental architectural changes like increasing tile sizes and implementing more sophisticated pipelines. This is beyond the scope of this project but provides a clear path forward.
-
-### Phase 4: Final Comprehensive Evaluation
-
-We ran comprehensive benchmarks across all kernels and matrix sizes, validated correctness, and generated final performance reports. This phase confirmed that our kernels are correct but need significant optimization to reach the performance target.
+Other kernels tried 8 warps but hit register pressure limits, especially for larger matrices.
 
 ---
 
-## Final Performance Results
+## Implementation Details
 
-### Performance Summary (4096x4096x4096)
+### TensorCore GEMM Kernel
 
-| Kernel | GFLOPS | Efficiency vs cuBLAS TC | Time (ms) |
-|--------|--------|------------------------|-----------|
-| cuBLAS TensorCore | 90,472 | 100.00% (baseline) | 1.52 |
-| cuBLAS SGEMM | 12,960 | 14.32% | 10.61 |
-| Our TensorCore (Optimized) | 2,664 | 2.94% | 51.60 |
-| Our TensorCore (Baseline) | 2,648 | 2.93% | 51.91 |
-| Our TensorCore (Large Tile) | 2,650 | 2.93% | 51.86 |
-| Lab-1 Tiled | 1,947 | 2.15% | 70.61 |
+**Architecture:**
+- 4 warps per block (128 threads) - Balanced kernel
+- Each warp computes 16×16 output tile
+- Each block computes 32×32 output (2×2 warp arrangement)
+- FP16 input matrices, FP32 accumulation (mixed precision)
+- Shared memory for tile loading (WMMA requirement)
 
-### Key Metrics
+**Algorithm:**
+1. Each warp loads a 16×16 tile from A (row-major)
+2. Each warp loads a 16×16 tile from B (transposed to col-major for WMMA)
+3. WMMA computes: C_tile = A_tile × B_tile (using TensorCore hardware)
+4. Accumulate over K dimension in chunks of 16
+5. Store FP32 result to global memory
 
-- Average Efficiency: 3.10% of cuBLAS TensorCore
-- Target: 40-60% of cuBLAS TensorCore
-- Status: Target not achieved, but kernels are functionally correct
+**Key Features:**
+- Proper WMMA API usage with shared memory
+- Correct matrix layout handling (row-major A, col-major B)
+- Boundary checking for non-multiple-of-16 sizes
+- Double buffering for better memory/compute overlap
 
-### Performance Analysis
+### Optimizations Tried
 
-**Why the performance gap?**
-
-1. Small tile sizes: We use 32x32 blocks vs CUTLASS 128x128 (4x smaller). This means more kernel launches and higher overhead.
-
-2. Limited pipelining: We use 2-stage pipelines vs CUTLASS 3-5 stage. This means less effective latency hiding.
-
-3. Conservative design: We prioritized correctness over aggressive optimization. Smaller blocks are easier to debug and validate, but this limits performance.
-
-4. Architectural differences: Fundamental design choices (tile sizes, number of warps) limit performance compared to highly optimized libraries.
-
-**What works:**
-- All kernels pass correctness validation (100%)
-- TensorCore implementation demonstrates proper WMMA API usage
-- Code is well-documented and maintainable
-- Solid foundation for further optimization
+1. **Double Buffering (2-Stage Pipeline)**: Overlap loading next tile with computing current tile
+2. **Larger Tile Sizes**: Tried 64×64 and 64×128 blocks
+3. **More Warps**: Tried 8 and 16 warps per block
+4. **Coalesced Memory Access**: Optimized B matrix access pattern
+5. **Reduced Register Pressure**: Balanced kernel uses 4 warps for better occupancy
 
 ---
 
@@ -145,7 +120,7 @@ We ran comprehensive benchmarks across all kernels and matrix sizes, validated c
 
 ### Build Instructions
 
-On Greene, you need to use the Singularity container:
+On Greene, use the Singularity container:
 
 ```bash
 # Enter Singularity container
@@ -179,126 +154,51 @@ python3 src/generate_final_report.py
 
 # View results
 cat results/final/performance_summary.txt
-cat results/final/comparison_table.txt
 ```
 
 ---
 
-## Implementation Details
+## What I Learned
 
-### TensorCore GEMM Kernel
+1. **WMMA API is tricky**: Requires shared memory, strict layout requirements (col-major for B), and warp-level coordination.
 
-**Architecture:**
-- 4 warps per block (128 threads)
-- Each warp computes 16x16 output tile
-- Each block computes 32x32 output (2x2 warp arrangement)
-- FP16 input matrices, FP32 accumulation (mixed precision)
-- Shared memory for tile loading (WMMA requirement)
+2. **Correctness first**: Spent a lot of time getting correctness right before optimizing. Small bugs can cause huge issues.
 
-**Algorithm:**
-1. Each warp loads a 16x16 tile from A (row-major)
-2. Each warp loads a 16x16 tile from B (transposed to col-major for WMMA)
-3. WMMA computes: C_tile = A_tile × B_tile (using TensorCore hardware)
-4. Accumulate over K dimension in chunks of 16
-5. Store FP32 result to global memory
+3. **Register pressure matters**: Using 8 warps caused register spilling and lower occupancy. 4 warps worked better.
 
-**Key Features:**
-- Proper WMMA API usage with shared memory
-- Correct matrix layout handling (row-major A, col-major B)
-- Boundary checking and zero-padding for non-multiple-of-16 sizes
-- Efficient shared memory usage within 48KB limit
+4. **Tile sizes are important**: Larger tiles reduce kernel launch overhead, but need to fit in shared memory (48KB limit).
 
-### Optimizations Attempted
-
-**1. Double Buffering (2-Stage Pipeline):**
-- Software pipelining: overlap loading next tile with computing current tile
-- Result: +0.4% improvement (minimal - memory wasn't the main bottleneck)
-
-**2. Large Tile Size (64x64):**
-- Increased block output from 32x32 to 64x64
-- Result: No improvement (possibly shared memory pressure)
-
-**3. 3-Stage Pipeline:**
-- Attempted 3-stage pipeline for better latency hiding
-- Result: Performance bug (54% slower) - disabled for now
+5. **Profiling is essential**: Need Nsight Compute to understand bottlenecks. Memory bandwidth, occupancy, and register usage all matter.
 
 ---
 
-## Key Learnings
+## Challenges
 
-### What We Learned
+1. **WMMA API learning curve**: Documentation can be sparse, had to figure out layout requirements through trial and error.
 
-1. Hardware understanding is critical: Understanding GPU architecture (TensorCores, memory hierarchy) is essential. TensorCores provide massive speedup (5-7x) when used correctly, and the memory hierarchy (global → shared → registers) is key to performance.
+2. **Debugging GPU code**: Hard to debug (no easy printf). Validation was key.
 
-2. Correctness first: Performance is meaningless if results are wrong. Validation is essential at every step. Small bugs can cause huge correctness issues.
+3. **Performance tuning**: Many factors affect performance. Iterative optimization needed.
 
-3. WMMA API complexity: The WMMA API has strict layout requirements (col-major for B matrix), requires shared memory (not local memory), and needs warp-level coordination (32 threads work together).
-
-4. Performance vs correctness trade-offs: Sometimes correctness fixes hurt performance. We needed to balance both concerns. Optimization can come after correctness is established.
-
-5. Optimization is hard: Many factors affect performance (tile sizes, pipelining, memory access). We need profiling tools to identify bottlenecks. Iterative optimization is necessary, and fundamental architectural changes may be needed.
-
-### Challenges Overcome
-
-1. WMMA API learning curve: Documentation can be sparse, layout requirements not always clear. We used trial and error to get it right.
-
-2. Debugging GPU code: GPU code is hard to debug (no easy printf). Validation was key. We needed a systematic approach.
-
-3. Performance tuning: Many factors affect performance. We need profiling tools and iterative optimization.
+4. **Shared memory limits**: Had to carefully manage shared memory to stay under 48KB per block.
 
 ---
 
-## Project Status
+## Results
 
-### Completed
-- Phase 1: Foundation & Benchmarking
-- Phase 2: TensorCore Implementation (correct and validated)
-- Phase 3: CUTLASS Analysis
-- Phase 4: Final Comprehensive Evaluation
-
-### Current State
-- Correctness: 100% validated (all tests passing)
-- Performance: 3.1% of cuBLAS TensorCore (target: 40-60%)
-- Code Quality: Well-documented and maintainable
-- Integration: Complete benchmark suite
-
-### Future Work
-To reach the target performance, significant architectural improvements are needed:
-1. Increase tile sizes to 128x128 blocks (requires careful shared memory management)
-2. Implement 3-5 stage pipelines (complex but high impact)
-3. Add vectorized memory operations
-4. Optimize shared memory layouts to avoid bank conflicts
-5. Profile with Nsight Compute to identify specific bottlenecks
-
----
-
-## Results Location
-
-All benchmark results and analysis are in the `results/` directory:
+All benchmark results are in the `results/` directory:
 - `results/benchmark_results.csv` - Complete benchmark data
 - `results/final/performance_summary.txt` - Final performance summary
-- `results/final/comparison_table.txt` - Performance comparison table
+- `results/final/comparison_table.txt` - Performance comparison
 
 ---
 
 ## References
 
-- CUTLASS: https://github.com/NVIDIA/cutlass - CUDA Templates for Linear Algebra Subroutines
+- CUTLASS: https://github.com/NVIDIA/cutlass
 - cuBLAS Documentation: https://docs.nvidia.com/cuda/cublas/
-- Nsight Compute: https://developer.nvidia.com/nsight-compute - GPU Kernel Profiler
-- Roofline Model: https://en.wikipedia.org/wiki/Roofline_model - Performance visualization
+- Nsight Compute: https://developer.nvidia.com/nsight-compute
 
 ---
 
-## License
-
-See LICENSE file for details.
-
----
-
-**Project Repository:** https://github.com/sichenz/GEMM-Optimization  
-**Branches:**
-- `phase1` - Phase 1 completion
-- `phase2` - Phase 2 completion  
-- `phase3` - Phase 3 completion
-- `phase4` - Final submission (current)
+**Repository:** https://github.com/sichenz/GEMM-Optimization

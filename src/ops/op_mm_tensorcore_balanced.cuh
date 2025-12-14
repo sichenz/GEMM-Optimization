@@ -1,9 +1,8 @@
 #pragma once
 
-// Balanced TensorCore GEMM - Optimized for Occupancy
-// Key insight: Register pressure from 8 warps limits occupancy
-// Solution: Use 4 warps with optimized memory access and better pipelining
-// This should achieve higher occupancy and better GPU utilization
+// Balanced TensorCore GEMM
+// Uses 4 warps instead of 8 to reduce register pressure and improve occupancy
+// Better memory access patterns and pipelining
 
 #include "utils/check_error.cuh"
 #include "utils/tensor.cuh"

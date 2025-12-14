@@ -1,12 +1,8 @@
 #pragma once
 
 // Ultra-optimized TensorCore GEMM
-// Key insight: Memory bandwidth is only 0.4% of peak - too much synchronization overhead
-// Optimizations:
-// 1. Reduced __syncthreads() calls - better pipelining
-// 2. Improved double buffering - better overlap of compute and memory
-// 3. Optimized memory access - reduce Index() macro overhead
-// 4. Better instruction scheduling
+// Reduced synchronization overhead and improved memory access
+// Direct addressing instead of Index() macro to reduce overhead
 
 #include "utils/check_error.cuh"
 #include "utils/tensor.cuh"

@@ -1,9 +1,7 @@
 #pragma once
 
-// High-performance TensorCore GEMM implementation
-// Key optimizations:
-// 1. Larger tile sizes (64x64 output per block with 8 warps)
-// 2. Optimized shared memory layout to avoid bank conflicts
+// High-performance TensorCore GEMM
+// Larger tiles (64×32), 8 warps per block, optimized shared memory layout
 // 3. Better double buffering with proper synchronization
 // 4. Improved memory access patterns for coalescing
 

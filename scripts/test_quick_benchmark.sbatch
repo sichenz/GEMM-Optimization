@@ -4,7 +4,6 @@
 #SBATCH --time=0:15:00
 #SBATCH --mem=16GB
 #SBATCH --job-name=test_bench
-#SBATCH --mail-user=sz4972@nyu.edu
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=logs/test_benchmark.out
 #SBATCH --gres=gpu:rtx8000:1
@@ -28,9 +27,10 @@ source /ext3/env.sh
 conda activate test
 cd /scratch/$USER/GEMM-Optimization
 
-echo 'Step 1: Pull latest changes'
+echo 'Step 1: Pull latest changes (if needed)'
 echo ''
-git pull origin performance-optimizations
+# Uncomment if you need to pull from a specific branch:
+# git pull origin main
 
 echo ''
 echo 'Step 2: Build'
@@ -76,7 +76,7 @@ else
     exit 1
 fi
 
-if grep -q 'Lab2_TensorCore[^_]' logs/test_output.txt || grep -qE 'Lab2_TensorCore[,\s]' logs/test_output.txt; then
+if grep -q 'Lab2_TensorCore ' logs/test_output.txt; then
     echo '✓ Baseline kernel ran'
 else
     echo '✗ Baseline kernel did NOT run'

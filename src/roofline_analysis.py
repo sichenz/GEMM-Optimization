@@ -39,6 +39,21 @@ def load_benchmark_data(filename):
     """Load benchmark results from CSV"""
     try:
         df = pd.read_csv(filename)
+        
+        # Filter to only essential kernels (clean up redundant ones)
+        essential_kernels = [
+            'Lab1_Tiled',
+            'Lab2_TensorCore',  # Baseline
+            'Lab2_TensorCore_Optimized',  # Optimization attempt
+            'Lab2_TensorCore_Balanced',  # Best performer
+            'cuBLAS_SGEMM',
+            'cuBLAS_HGEMM_TensorCore'
+        ]
+        
+        if 'Kernel' in df.columns:
+            df = df[df['Kernel'].isin(essential_kernels)]
+            print(f"Filtered to essential kernels: {len(df)} results")
+        
         return df
     except Exception as e:
         print(f"Error loading {filename}: {e}")

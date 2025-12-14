@@ -3,7 +3,6 @@
 High-performance General Matrix Multiply (GEMM) implementation using GPU TensorCores on NYU Greene.
 
 **Authors:** Sichen Zhong, Anh Dam  
-**Date:** December 2025  
 **Platform:** NVIDIA Quadro RTX 8000 (Turing, Compute Capability 7.5)
 
 ---
@@ -22,25 +21,28 @@ GEMM is the core operation in deep learning and accounts for most of the trainin
 GEMM-Optimization/
 ├── src/
 │   ├── benchmark_gemm.cu          # Main benchmarking harness
-│   ├── generate_final_report.py  # Performance report generation
 │   ├── roofline_analysis.py      # Roofline model visualization
 │   │
 │   ├── ops/                      # CUDA kernel implementations
 │   │   ├── op_mm.cuh            # Lab-1 tiled GEMM (FP32)
 │   │   ├── op_mm_tensorcore.cuh # TensorCore GEMM baseline
-│   │   ├── op_mm_tensorcore_optimized.cuh  # Optimized version
-│   │   ├── op_mm_tensorcore_balanced.cuh   # Best performing kernel
-│   │   └── ...                  # Other optimization attempts
+│   │   ├── op_mm_tensorcore_optimized.cuh  # Optimized version (8 warps)
+│   │   ├── op_mm_tensorcore_balanced.cuh   # Best performing kernel (4 warps)
+│   │   └── op_elemwise.cuh      # Element-wise operations
 │   │
 │   └── utils/                    # Utility headers
 │       ├── tensor.cuh           # Tensor data structure
 │       └── check_error.cuh      # CUDA error checking
 │
 ├── scripts/                      # SLURM job scripts
-│   ├── run_phase4_final.sbatch  # Final benchmarking
-│   └── profile_comparison.sbatch # Profiling scripts
+│   ├── test_quick_benchmark.sbatch  # Quick benchmark test
+│   ├── profile_comparison.sbatch   # Profiling with Nsight Compute
+│   └── run_roofline_analysis.sbatch # Generate roofline plots
 │
 ├── results/                      # Benchmark results
+│   ├── final/                   # Final benchmark results
+│   ├── plots/                   # Generated plots (empty, for future use)
+│   └── profiling/               # Profiling outputs (empty, for future use)
 └── CMakeLists.txt               # Build configuration
 ```
 
@@ -146,14 +148,14 @@ make -j8 benchmark_gemm
 sbatch scripts/run_phase4_final.sbatch
 ```
 
-### Generating Reports
+### Generating Roofline Analysis
 
 ```bash
-# Generate final performance report
-python3 src/generate_final_report.py
+# Generate roofline plots and analysis
+python3 src/roofline_analysis.py
 
-# View results
-cat results/final/performance_summary.txt
+# View generated files
+ls -lh results/roofline_plot.png results/performance_comparison.png results/analysis_report.txt
 ```
 
 ---
@@ -198,7 +200,3 @@ All benchmark results are in the `results/` directory:
 - CUTLASS: https://github.com/NVIDIA/cutlass
 - cuBLAS Documentation: https://docs.nvidia.com/cuda/cublas/
 - Nsight Compute: https://developer.nvidia.com/nsight-compute
-
----
-
-**Repository:** https://github.com/sichenz/GEMM-Optimization

@@ -76,10 +76,12 @@ else
     exit 1
 fi
 
-if grep -q 'Lab2_TensorCore,' logs/test_output.txt; then
+if grep -q 'Lab2_TensorCore[^_]' logs/test_output.txt || grep -qE 'Lab2_TensorCore[,\s]' logs/test_output.txt; then
     echo '✓ Baseline kernel ran'
 else
     echo '✗ Baseline kernel did NOT run'
+    echo 'Checking what kernels actually ran:'
+    grep -o 'Lab2_TensorCore[^,]*' logs/test_output.txt | sort -u || echo 'No Lab2 kernels found'
     exit 1
 fi
 

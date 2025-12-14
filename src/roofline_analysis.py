@@ -324,8 +324,12 @@ def main():
             'peak_bandwidth_gb_s': 898.0   # V100: 898.0 GB/s
         }
     
-    # Load benchmark data
-    df = load_benchmark_data('results/benchmark_results.csv')
+    # Load benchmark data (try final results first, then fallback)
+    import os
+    csv_path = 'results/final/benchmark_results.csv'
+    if not os.path.exists(csv_path):
+        csv_path = 'results/benchmark_results.csv'
+    df = load_benchmark_data(csv_path)
     
     print(f"\nLoaded {len(df)} benchmark results")
     print(f"Kernels tested: {', '.join(df['Kernel'].unique())}")
@@ -344,6 +348,6 @@ def main():
     print("  - results/analysis_report.txt")
 
 if __name__ == '__main__':
-    main()h fdx 
+    main()
 
         

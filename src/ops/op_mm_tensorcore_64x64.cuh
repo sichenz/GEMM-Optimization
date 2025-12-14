@@ -36,9 +36,9 @@ __global__ void op_mm_tensorcore_64x64_kernel(
     const int m = blockRow * 64 + warpRowInBlock * WMMA_M;
     const int n = blockCol * 64 + warpColInBlock * WMMA_N;
     
-    // Double buffered shared memory
-    __shared__ __half smem_a[2][16][WMMA_M * WMMA_K + 8];
-    __shared__ __half smem_b[2][16][WMMA_K * WMMA_N + 8];
+    // Double buffered shared memory (no padding to fit 48KB limit)
+    __shared__ __half smem_a[2][16][WMMA_M * WMMA_K];
+    __shared__ __half smem_b[2][16][WMMA_K * WMMA_N];
     
     // WMMA fragments
     wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, __half, wmma::row_major> frag_a[2];
@@ -123,8 +123,8 @@ __global__ void op_mm_tensorcore_64x64_kernel(
         wmma::mma_sync(frag_c, frag_a[buf_idx], frag_b[buf_idx], frag_c);
     }
     
-    // Store result
-    __shared__ float smem_c[16][WMMA_M * WMMA_N + 8];
+    // Store result (no padding to fit 48KB limit)
+    __shared__ float smem_c[16][WMMA_M * WMMA_N];
     wmma::store_matrix_sync(smem_c[warpId], frag_c, WMMA_N, wmma::mem_row_major);
     __syncthreads();
     

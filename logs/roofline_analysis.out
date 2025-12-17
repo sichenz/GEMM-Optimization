@@ -1,0 +1,38 @@
+Roofline Analysis
+
+Wed Dec 17 02:40:50 PM EST 2025
+
+Running roofline analysis...
+
+Parsed GPU specs from file:
+  FP32 Peak: 14930.0 GFLOPS
+  FP16 Peak: 119400.0 GFLOPS
+  Bandwidth: 624.1 GB/s
+Filtered to essential kernels: 66 results
+
+Loaded 66 benchmark results
+Kernels tested: Lab1_Tiled, cuBLAS_SGEMM, cuBLAS_HGEMM_TensorCore, Lab2_TensorCore, Lab2_TensorCore_Optimized, Lab2_TensorCore_Balanced
+Matrix sizes: 11
+
+Generating analysis...
+Saved: results/roofline_plot_fp32.png
+Saved: results/roofline_plot_fp16.png
+Performance comparison saved to results/performance_comparison.png
+Analysis report saved to results/analysis_report.txt
+
+Analysis complete!
+Generated files:
+  - results/roofline_plot.png
+  - results/performance_comparison.png
+  - results/analysis_report.txt
+
+Roofline analysis complete!
+
+Generated files:
+  - results/roofline_plot.png
+  - results/performance_comparison.png
+  - results/analysis_report.txt
+
+
+Roofline analysis job completed!
+Wed Dec 17 02:41:09 PM EST 2025

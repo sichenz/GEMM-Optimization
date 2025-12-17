@@ -1,6 +1,6 @@
 ========================================
 GPU Specifications Report
-Generated: Nov 21 2025 11:36:22
+Generated: Dec 17 2025 14:38:49
 ========================================
 
 ========================================
@@ -36,8 +36,8 @@ Peak Memory Bandwidth: 624.1 GB/s
 Estimated FP32 Peak TFLOPS: 14.93 TFLOPS
 Base Clock Rate: 1.62 GHz
 TensorCore Architecture: Turing
-TensorCore FP16 Peak TFLOPS: 65.0 TFLOPS
-TensorCore Speedup vs FP32: 4.4x
+TensorCore FP16 Peak TFLOPS: 119.4 TFLOPS
+TensorCore Speedup vs FP32: 8.0x
 
 === Feature Support ===
 Concurrent Kernels: Yes
@@ -51,5 +51,5 @@ TensorCore Support: Yes (Compute 7.5)
 FP32 Ridge Point: 23.92 FLOPS/Byte
   (Workloads with AI > 23.92 are compute-bound)
   (Workloads with AI < 23.92 are memory-bound)
-FP16 TensorCore Ridge Point: 104.15 FLOPS/Byte
+FP16 TensorCore Ridge Point: 191.38 FLOPS/Byte
 

@@ -7,6 +7,7 @@
 #SBATCH --mail-user=sz4972@nyu.edu
 #SBATCH --mail-type=END,FAIL
 #SBATCH --output=logs/roofline_analysis.out
+#SBATCH --gres=gpu:rtx8000:1
 
 set -euo pipefail
 
@@ -21,8 +22,8 @@ date
 echo ""
 
 singularity exec --nv \
-    --overlay /scratch/$USER/overlay-25GB-500K.ext3:rw \
-    /scratch/$USER/cuda12.8.1-cudnn9.8.0-ubuntu24.04.2.sif \
+    --overlay /scratch/$USER/env/overlay-50G-10M.ext3:rw \
+    /scratch/work/public/singularity/cuda12.8.1-cudnn9.8.0-ubuntu24.04.2.sif \
     /bin/bash -c "
 source /ext3/env.sh
 conda activate test

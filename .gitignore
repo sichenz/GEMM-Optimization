@@ -27,16 +27,7 @@ cmake_install.cmake
 Makefile
 
 # ===============================
-# Slurm logs (general outputs, but keep test_benchmark.out)
-slurm-*.out
-slurm-*.err
-*.err
-# Note: logs/test_benchmark.out is included for submission
-
-# ===============================
-# Results & logs
-# Note: results/ and logs/ are included in repo for submission
-# Only ignore build artifacts and temporary files
+# Build artifacts and temporary files
 *.tmp
 *.temp
 
@@ -56,7 +47,6 @@ third_party/cutlass/build/**
 # Local scratch scripts
 test.sh
 test_gpu.sbatch
-profiling_*.log
 
 # ===============================
 # Local documentation (keep private)

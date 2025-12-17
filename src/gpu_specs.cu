@@ -11,7 +11,7 @@
 // Simple error checking
 void checkCudaError(cudaError_t error, const char* msg) {
     if (error != cudaSuccess) {
-        std::cerr << "CUDA Error: " << msg << " - " 
+        std::cerr << "CUDA Error: " << msg << " - "
                   << cudaGetErrorString(error) << std::endl;
         exit(1);
     }
@@ -22,7 +22,7 @@ void checkCudaError(cudaError_t error, const char* msg) {
 int getSPcores(cudaDeviceProp devProp) {
     int cores = 0;
     int mp = devProp.multiProcessorCount;
-    
+
     switch (devProp.major) {
         case 2: // Fermi
             cores = (devProp.minor == 1) ? mp * 48 : mp * 32;
@@ -52,205 +52,252 @@ int getSPcores(cudaDeviceProp devProp) {
     return cores;
 }
 
+// Helper: tensor cores per SM by architecture
+static double tensorCoresPerSM(const cudaDeviceProp& prop, std::string& archNameOut) {
+    archNameOut = "Unknown";
+
+    // Volta (SM 7.0)
+    if (prop.major == 7 && prop.minor == 0) {
+        archNameOut = "Volta";
+        return 8.0;
+    }
+    // Turing (SM 7.5)
+    if (prop.major == 7 && prop.minor == 5) {
+        archNameOut = "Turing";
+        return 8.0;
+    }
+    // Ampere (SM 8.x): generally 4 Tensor Cores per SM
+    if (prop.major == 8) {
+        archNameOut = "Ampere";
+        return 4.0;
+    }
+    // Hopper (SM 9.0): 4 Tensor Cores per SM (FP16/BF16/TF32 modes vary)
+    if (prop.major == 9 && prop.minor == 0) {
+        archNameOut = "Hopper";
+        return 4.0;
+    }
+
+    return 0.0;
+}
+
+// Helper: compute theoretical FP16 TensorCore peak TFLOPS using a standard estimate
+static double estimateFp16TensorCoreTflops(const cudaDeviceProp& prop, double clockRateGHz) {
+    // Only valid for GPUs with Tensor Cores (Volta+)
+    if (prop.major < 7) return 0.0;
+
+    std::string archName;
+    double tcPerSM = tensorCoresPerSM(prop, archName);
+    if (tcPerSM <= 0.0) return 0.0;
+
+    // Standard estimate:
+    // Each Tensor Core can perform 64 FMA per cycle for FP16 MMA.
+    // Each FMA = 2 FLOPs.
+    const double fmaPerTensorCorePerCycle = 64.0;
+    const double flopsPerFMA = 2.0;
+
+    // FLOPs/s = SMs * (TC/SM) * (FMA/TC/cycle) * (FLOPs/FMA) * clock(Hz)
+    // Using GHz gives us "Giga-cycles/s", so result is in GFLOPs/s; divide by 1000 => TFLOPs
+    double tflops =
+        (prop.multiProcessorCount *
+         tcPerSM *
+         fmaPerTensorCorePerCycle *
+         flopsPerFMA *
+         clockRateGHz) / 1000.0;
+
+    return tflops;
+}
+
 // Print all GPU specifications
 void printDeviceSpecs(std::ostream& out) {
     int deviceCount = 0;
     checkCudaError(cudaGetDeviceCount(&deviceCount), "Get Device Count");
-    
+
     if (deviceCount == 0) {
         out << "No CUDA-capable devices found!" << std::endl;
         return;
     }
-    
+
     // Loop through all available GPUs (usually just one in our case)
     for (int dev = 0; dev < deviceCount; dev++) {
         cudaDeviceProp prop;
         checkCudaError(cudaGetDeviceProperties(&prop, dev), "Get Device Properties");
-        
+
+        out << "========================================" << std::endl;
         out << "Device " << dev << ": " << prop.name << std::endl;
+        out << "========================================" << std::endl;
         out << std::endl;
-        
-        out << "Basic Information:" << std::endl;
+
+        out << "=== Basic Information ===" << std::endl;
         out << "Compute Capability: " << prop.major << "." << prop.minor << std::endl;
-        out << "Total Global Memory: " 
+        out << "Total Global Memory: "
             << std::fixed << std::setprecision(2)
-            << (double)prop.totalGlobalMem / (1024.0 * 1024.0 * 1024.0) 
+            << (double)prop.totalGlobalMem / (1024.0 * 1024.0 * 1024.0)
             << " GB" << std::endl;
-        out << "Memory Clock Rate: " 
+        out << "Memory Clock Rate: "
             << std::fixed << std::setprecision(2)
             << prop.memoryClockRate / 1000.0 << " MHz" << std::endl;
         out << "Memory Bus Width: " << prop.memoryBusWidth << " bits" << std::endl;
         out << std::endl;
-        
-        out << "Compute Resources:" << std::endl;
+
+        out << "=== Compute Resources ===" << std::endl;
         out << "Number of SMs: " << prop.multiProcessorCount << std::endl;
-        
+
         int cudaCores = getSPcores(prop);
         out << "CUDA Cores: " << cudaCores << " (total)" << std::endl;
         out << "CUDA Cores per SM: " << cudaCores / prop.multiProcessorCount << std::endl;
-        
+
         out << "Max Threads per SM: " << prop.maxThreadsPerMultiProcessor << std::endl;
         out << "Max Threads per Block: " << prop.maxThreadsPerBlock << std::endl;
-        out << "Max Block Dimensions: (" 
+        out << "Max Block Dimensions: ("
             << prop.maxThreadsDim[0] << ", "
             << prop.maxThreadsDim[1] << ", "
             << prop.maxThreadsDim[2] << ")" << std::endl;
-        out << "Max Grid Dimensions: (" 
+        out << "Max Grid Dimensions: ("
             << prop.maxGridSize[0] << ", "
             << prop.maxGridSize[1] << ", "
             << prop.maxGridSize[2] << ")" << std::endl;
         out << "Warp Size: " << prop.warpSize << std::endl;
         out << std::endl;
-        
-        out << "Memory Hierarchy:" << std::endl;
-        out << "L2 Cache Size: " 
+
+        out << "=== Memory Hierarchy ===" << std::endl;
+        out << "L2 Cache Size: "
             << std::fixed << std::setprecision(2)
-            << (double)prop.l2CacheSize / (1024.0 * 1024.0) 
+            << (double)prop.l2CacheSize / (1024.0 * 1024.0)
             << " MB" << std::endl;
-        out << "Shared Memory per Block: " 
+        out << "Shared Memory per Block: "
             << std::fixed << std::setprecision(2)
-            << (double)prop.sharedMemPerBlock / 1024.0 
+            << (double)prop.sharedMemPerBlock / 1024.0
             << " KB" << std::endl;
-        out << "Shared Memory per SM: " 
+        out << "Shared Memory per SM: "
             << std::fixed << std::setprecision(2)
-            << (double)prop.sharedMemPerMultiprocessor / 1024.0 
+            << (double)prop.sharedMemPerMultiprocessor / 1024.0
             << " KB" << std::endl;
         out << "Registers per Block: " << prop.regsPerBlock << std::endl;
         out << "Registers per SM: " << prop.regsPerMultiprocessor << std::endl;
-        out << "Constant Memory: " 
+        out << "Constant Memory: "
             << std::fixed << std::setprecision(2)
-            << (double)prop.totalConstMem / 1024.0 
+            << (double)prop.totalConstMem / 1024.0
             << " KB" << std::endl;
         out << std::endl;
-        
-        out << "Performance Characteristics:" << std::endl;
-        
+
+        out << "=== Performance Characteristics ===" << std::endl;
+
         // Memory bandwidth: 2 * clock * bus_width / 8 (DDR = double data rate)
-        double memBandwidthGB = 2.0 * prop.memoryClockRate * 
+        double memBandwidthGB = 2.0 * prop.memoryClockRate *
                                 (prop.memoryBusWidth / 8.0) / 1.0e6;
-        out << "Peak Memory Bandwidth: " 
+        out << "Peak Memory Bandwidth: "
             << std::fixed << std::setprecision(1)
             << memBandwidthGB << " GB/s" << std::endl;
-        
+
         // FP32 TFLOPS: cores * clock * 2 (FMA counts as 2 ops)
         double clockRateGHz = prop.clockRate / 1.0e6; // Convert kHz to GHz
         double fp32TFlops = (cudaCores * clockRateGHz * 2.0) / 1000.0;
-        
-        out << "Estimated FP32 Peak TFLOPS: " 
+
+        out << "Estimated FP32 Peak TFLOPS: "
             << std::fixed << std::setprecision(2)
             << fp32TFlops << " TFLOPS" << std::endl;
-        out << "Base Clock Rate: " 
+        out << "Base Clock Rate: "
             << std::fixed << std::setprecision(2)
             << clockRateGHz << " GHz" << std::endl;
-        
-        // TensorCore capabilities
+
+        // TensorCore capabilities (computed from device properties, not hard-coded per GPU)
         if (prop.major >= 7) { // Volta and later
-            double fp16TFlops = 0;
-            std::string tcArch = "";
-            
-            if (prop.major == 7 && prop.minor == 0) { // V100
-                fp16TFlops = 112.0;
-                tcArch = "Volta";
-            } else if (prop.major == 7 && prop.minor == 5) { // T4, RTX 2000, Quadro RTX
-                fp16TFlops = 65.0; // T4 spec (Turing)
-                // For Quadro RTX 8000: 72 SMs * 8 TC/SM * 64 ops/TC/cycle * 1.77 GHz
-                // More accurate: 72 * 8 * 64 * 1.77 / 1000 = 65.2 TFLOPS
-                tcArch = "Turing";
-            } else if (prop.major == 8 && prop.minor == 0) { // A100
-                fp16TFlops = 312.0;
-                tcArch = "Ampere";
-            } else if (prop.major == 8 && prop.minor == 6) { // A40, A10
-                fp16TFlops = 149.0;
-                tcArch = "Ampere";
-            } else if (prop.major == 9 && prop.minor == 0) { // H100
-                fp16TFlops = 989.0;
-                tcArch = "Hopper";
-            }
-            
-            if (fp16TFlops > 0) {
+            std::string tcArch;
+            double tcPerSM = tensorCoresPerSM(prop, tcArch);
+            double fp16TFlops = estimateFp16TensorCoreTflops(prop, clockRateGHz);
+
+            if (tcPerSM > 0.0 && fp16TFlops > 0.0) {
                 out << "TensorCore Architecture: " << tcArch << std::endl;
-                out << "TensorCore FP16 Peak TFLOPS: " 
+                out << "TensorCore FP16 Peak TFLOPS: "
                     << std::fixed << std::setprecision(1)
                     << fp16TFlops << " TFLOPS" << std::endl;
-                out << "TensorCore Speedup vs FP32: " 
+                out << "TensorCore Speedup vs FP32: "
                     << std::fixed << std::setprecision(1)
                     << fp16TFlops / fp32TFlops << "x" << std::endl;
+            } else {
+                out << "TensorCore Architecture: " << tcArch << std::endl;
+                out << "TensorCore Support: Yes (but could not estimate FP16 peak)" << std::endl;
             }
         }
-        
+
         out << std::endl;
-        
-        out << "Feature Support:" << std::endl;
-        out << "Concurrent Kernels: " 
+
+        out << "=== Feature Support ===" << std::endl;
+        out << "Concurrent Kernels: "
             << (prop.concurrentKernels ? "Yes" : "No") << std::endl;
-        out << "ECC Enabled: " 
+        out << "ECC Enabled: "
             << (prop.ECCEnabled ? "Yes" : "No") << std::endl;
-        out << "Unified Addressing: " 
+        out << "Unified Addressing: "
             << (prop.unifiedAddressing ? "Yes" : "No") << std::endl;
-        out << "Managed Memory: " 
+        out << "Managed Memory: "
             << (prop.managedMemory ? "Yes" : "No") << std::endl;
-        out << "Cooperative Launch: " 
+        out << "Cooperative Launch: "
             << (prop.cooperativeLaunch ? "Yes" : "No") << std::endl;
-        
+
         if (prop.major >= 7) {
-            out << "TensorCore Support: Yes (Compute " 
+            out << "TensorCore Support: Yes (Compute "
                 << prop.major << "." << prop.minor << ")" << std::endl;
         } else {
             out << "TensorCore Support: No" << std::endl;
         }
-        
+
         // Arithmetic intensity analysis
         // AI = FLOPS / Bytes - tells us if workload is memory-bound or compute-bound
         out << std::endl;
-        out << "Arithmetic Intensity Analysis:" << std::endl;
+        out << "=== Arithmetic Intensity Analysis ===" << std::endl;
+
         double ridgePointFP32 = (fp32TFlops * 1000.0) / memBandwidthGB; // GFLOPS / GB/s
-        out << "FP32 Ridge Point: " 
+        out << "FP32 Ridge Point: "
             << std::fixed << std::setprecision(2)
             << ridgePointFP32 << " FLOPS/Byte" << std::endl;
-        out << "  (Workloads with AI > " << ridgePointFP32 
+        out << "  (Workloads with AI > " << ridgePointFP32
             << " are compute-bound)" << std::endl;
-        out << "  (Workloads with AI < " << ridgePointFP32 
+        out << "  (Workloads with AI < " << ridgePointFP32
             << " are memory-bound)" << std::endl;
-        
+
         if (prop.major >= 7) {
-            double fp16TFlopsValue = (prop.major == 7 && prop.minor == 5) ? 65.0 : 0;
-            if (fp16TFlopsValue > 0) {
-                double ridgePointFP16 = (fp16TFlopsValue * 1000.0) / memBandwidthGB;
-                out << "FP16 TensorCore Ridge Point: " 
+            double fp16TFlops = estimateFp16TensorCoreTflops(prop, clockRateGHz);
+            if (fp16TFlops > 0.0) {
+                double ridgePointFP16 = (fp16TFlops * 1000.0) / memBandwidthGB;
+                out << "FP16 TensorCore Ridge Point: "
                     << std::fixed << std::setprecision(2)
                     << ridgePointFP16 << " FLOPS/Byte" << std::endl;
             }
         }
-        
+
         out << std::endl;
     }
 }
 
 int main() {
     // Generate GPU specs report
-    
     std::time_t now = std::time(nullptr);
     char timestamp[100];
     std::strftime(timestamp, sizeof(timestamp), "%b %d %Y %H:%M:%S", std::localtime(&now));
-    
+
+    std::cout << "========================================" << std::endl;
     std::cout << "GPU Specifications Report" << std::endl;
     std::cout << "Generated: " << timestamp << std::endl;
+    std::cout << "========================================" << std::endl;
     std::cout << std::endl;
-    
+
     printDeviceSpecs(std::cout);
-    
+
     // Save to file
     std::ofstream outFile("results/gpu_specs.txt");
     if (outFile.is_open()) {
+        outFile << "========================================" << std::endl;
         outFile << "GPU Specifications Report" << std::endl;
         outFile << "Generated: " << timestamp << std::endl;
+        outFile << "========================================" << std::endl;
         outFile << std::endl;
+
         printDeviceSpecs(outFile);
         outFile.close();
         std::cout << "Results saved to results/gpu_specs.txt" << std::endl;
     } else {
         std::cerr << "Failed to open output file!" << std::endl;
     }
-    
+
     return 0;
 }

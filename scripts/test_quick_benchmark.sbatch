@@ -76,7 +76,7 @@ else
     exit 1
 fi
 
-if grep -q 'Lab2_TensorCore ' logs/test_output.txt; then
+if grep -q '^Lab2_TensorCore[[:space:]]\+FP16' logs/test_output.txt; then
     echo '✓ Baseline kernel ran'
 else
     echo '✗ Baseline kernel did NOT run'

@@ -1,8 +1,8 @@
 #pragma once
 
 // TensorCore GEMM implementation using WMMA API
-// TensorCores are way faster than regular FP32 cores (5-7x speedup)
-// This uses FP16 inputs with FP32 accumulation (mixed precision)
+// TensorCores provide significant speedup over regular FP32 cores (5-7x)
+// Uses FP16 inputs with FP32 accumulation (mixed precision)
 
 #include "utils/check_error.cuh"
 #include "utils/tensor.cuh"

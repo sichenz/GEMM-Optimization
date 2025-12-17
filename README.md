@@ -1,6 +1,6 @@
 # GEMM Optimization Project
 
-High-performance General Matrix Multiply (GEMM) implementation using GPU TensorCores on NYU Greene.
+Implementation and optimization of General Matrix Multiply (GEMM) kernels using GPU TensorCores on NYU Greene HPC cluster.
 
 **Authors:** Sichen Zhong, Anh Dam  
 **Platform:** NVIDIA Quadro RTX 8000 (Turing, Compute Capability 7.5)
@@ -9,9 +9,9 @@ High-performance General Matrix Multiply (GEMM) implementation using GPU TensorC
 
 ## Overview
 
-This project implements and optimizes GEMM kernels using GPU TensorCores via the WMMA API. The goal was to achieve 40-60% of cuBLAS TensorCore performance, though we ended up at around 5-8% with our best kernel.
+This project implements GEMM kernels using GPU TensorCores through the WMMA API. Our initial goal was to achieve 40-60% of cuBLAS TensorCore performance, but we ended up reaching about 5-8% with our best kernel. While this is lower than our target, we learned a lot about GPU programming and optimization.
 
-GEMM is the core operation in deep learning and accounts for most of the training time. TensorCores provide 5-7x speedup over regular FP32 computation, so learning to program them is important for high-performance computing.
+GEMM is a fundamental operation in deep learning and takes up most of the training time. TensorCores can provide 5-7x speedup over regular FP32 computation, so understanding how to program them is useful for high-performance computing.
 
 ---
 
@@ -39,10 +39,10 @@ GEMM-Optimization/
 │   ├── profile_comparison.sbatch   # Profiling with Nsight Compute
 │   └── run_roofline_analysis.sbatch # Generate roofline plots
 │
-├── results/                      # Benchmark results
-│   ├── final/                   # Final benchmark results
-│   ├── plots/                   # Generated plots (empty, for future use)
-│   └── profiling/               # Profiling outputs (empty, for future use)
+├── results/                      # Benchmark results and analysis
+│   ├── benchmark_results.csv     # Latest benchmark data
+│   ├── gpu_specs.txt            # GPU specifications
+│   └── *.png                    # Performance plots
 └── CMakeLists.txt               # Build configuration
 ```
 
@@ -55,26 +55,25 @@ GEMM-Optimization/
 The Balanced kernel uses 4 warps per block instead of 8, which reduces register pressure and improves occupancy.
 
 **Performance (4096×4096×4096):**
-- **Balanced**: 4,591 GFLOPS (**5.18%** of cuBLAS TensorCore)
-- HighPerf: 2,789 GFLOPS (3.15% of cuBLAS)
-- Optimized: 2,570 GFLOPS (2.90% of cuBLAS)
-- Baseline: 2,656 GFLOPS (3.00% of cuBLAS)
-- **cuBLAS TensorCore**: 88,621 GFLOPS (100% baseline)
+- **Balanced**: 4,569 GFLOPS (**5.17%** of cuBLAS TensorCore) - best
+- Optimized: 2,565 GFLOPS (2.90% of cuBLAS)
+- Baseline: 2,646 GFLOPS (2.99% of cuBLAS)
+- **cuBLAS TensorCore**: 88,448 GFLOPS (100% baseline)
 
-**Performance across sizes:**
-- 1024×1024: 4,589 GFLOPS (8.55% of cuBLAS)
-- 2048×2048: 4,844 GFLOPS (5.37% of cuBLAS)
-- 4096×4096: 4,591 GFLOPS (5.18% of cuBLAS)
-- 8192×8192: 4,524 GFLOPS (5.16% of cuBLAS)
+**Performance across different matrix sizes:**
+- 1024×1024: 3,565 GFLOPS (6.7% of cuBLAS)
+- 2048×2048: 4,804 GFLOPS (5.3% of cuBLAS)
+- 4096×4096: 4,569 GFLOPS (5.2% of cuBLAS)
+- 8192×8192: 4,493 GFLOPS (5.1% of cuBLAS)
 
 ### Why Balanced Works Better
 
-The Balanced kernel uses 4 warps instead of 8, which:
-- Reduces register pressure → higher occupancy
-- Allows more blocks to run concurrently
-- Better GPU utilization
+We found that using 4 warps instead of 8 actually performs better because:
+- Less register pressure means higher occupancy
+- More blocks can run at the same time
+- Better overall GPU utilization
 
-Other kernels tried 8 warps but hit register pressure limits, especially for larger matrices.
+Initially we thought more warps would be better, but the Optimized kernel with 8 warps actually performed slightly worse than the baseline. This was surprising and took some time to figure out - we realized it was due to register pressure limiting how many blocks could run concurrently.
 
 ---
 
@@ -102,13 +101,15 @@ Other kernels tried 8 warps but hit register pressure limits, especially for lar
 - Boundary checking for non-multiple-of-16 sizes
 - Double buffering for better memory/compute overlap
 
-### Optimizations Tried
+### Optimizations We Tried
 
-1. **Double Buffering (2-Stage Pipeline)**: Overlap loading next tile with computing current tile
-2. **Larger Tile Sizes**: Tried 64×64 and 64×128 blocks
-3. **More Warps**: Tried 8 and 16 warps per block
-4. **Coalesced Memory Access**: Optimized B matrix access pattern
-5. **Reduced Register Pressure**: Balanced kernel uses 4 warps for better occupancy
+1. **Double Buffering**: Tried to overlap loading the next tile while computing the current one
+2. **Larger Tile Sizes**: Attempted 64×64 blocks but hit shared memory limits (48KB)
+3. **More Warps**: Tried 8 warps per block, but it didn't help due to register pressure
+4. **Coalesced Memory Access**: Fixed the B matrix access pattern to improve memory bandwidth
+5. **Reduced Register Pressure**: The Balanced kernel uses 4 warps which worked best
+
+We also tried some other approaches like vectorized loads and reducing synchronization, but they didn't improve performance much or caused compilation issues.
 
 ---
 
@@ -141,11 +142,11 @@ make -j8 benchmark_gemm
 ### Running Benchmarks
 
 ```bash
-# Run comprehensive benchmark
+# Run benchmark directly
 ./build/benchmark_gemm
 
-# Or use SLURM script (recommended)
-sbatch scripts/run_phase4_final.sbatch
+# Or use SLURM script (recommended for Greene)
+sbatch scripts/test_quick_benchmark.sbatch
 ```
 
 ### Generating Roofline Analysis
@@ -160,38 +161,42 @@ ls -lh results/roofline_plot.png results/performance_comparison.png results/anal
 
 ---
 
-## What I Learned
+## What We Learned
 
-1. **WMMA API is tricky**: Requires shared memory, strict layout requirements (col-major for B), and warp-level coordination.
+1. **WMMA API is more complex than expected**: It requires shared memory, has strict layout requirements (B matrix must be col-major), and needs careful warp-level coordination. The documentation wasn't always clear, so we had to figure some things out through trial and error.
 
-2. **Correctness first**: Spent a lot of time getting correctness right before optimizing. Small bugs can cause huge issues.
+2. **Correctness before optimization**: We spent a significant amount of time just getting the kernels to produce correct results. Small bugs can cause completely wrong outputs or crashes, so validation was crucial.
 
-3. **Register pressure matters**: Using 8 warps caused register spilling and lower occupancy. 4 warps worked better.
+3. **Register pressure is a real issue**: We initially thought more warps would always be better, but using 8 warps actually hurt performance because of register pressure. This was counterintuitive but important to understand.
 
-4. **Tile sizes are important**: Larger tiles reduce kernel launch overhead, but need to fit in shared memory (48KB limit).
+4. **Shared memory is limited**: We tried larger tile sizes but hit the 48KB shared memory limit per SM. This forced us to be more careful about memory usage.
 
-5. **Profiling is essential**: Need Nsight Compute to understand bottlenecks. Memory bandwidth, occupancy, and register usage all matter.
+5. **Profiling helps a lot**: Using Nsight Compute revealed that memory bandwidth was our main bottleneck, not compute. This guided our optimization efforts.
 
 ---
 
 ## Challenges
 
-1. **WMMA API learning curve**: Documentation can be sparse, had to figure out layout requirements through trial and error.
+1. **WMMA API learning curve**: The documentation wasn't always clear, especially about matrix layouts. We had to experiment a lot to get things working correctly.
 
-2. **Debugging GPU code**: Hard to debug (no easy printf). Validation was key.
+2. **Debugging GPU code**: Debugging is much harder than CPU code - no easy printf, and errors can be silent. We had to rely heavily on validation against cuBLAS to catch bugs.
 
-3. **Performance tuning**: Many factors affect performance. Iterative optimization needed.
+3. **Performance tuning**: There are many factors that affect performance (register usage, occupancy, memory access patterns, etc.). It took a lot of iteration to understand what was actually helping.
 
-4. **Shared memory limits**: Had to carefully manage shared memory to stay under 48KB per block.
+4. **Shared memory limits**: We tried larger tiles but kept hitting the 48KB limit. Had to be careful about padding and buffer sizes.
+
+5. **HPC environment**: Working on Greene had its own challenges - Singularity containers, SLURM job scheduling, and file transfer issues added complexity.
 
 ---
 
 ## Results
 
 All benchmark results are in the `results/` directory:
-- `results/benchmark_results.csv` - Complete benchmark data
-- `results/final/performance_summary.txt` - Final performance summary
-- `results/final/comparison_table.txt` - Performance comparison
+- `results/benchmark_results.csv` - Complete benchmark data for all kernels and matrix sizes
+- `results/gpu_specs.txt` - GPU specifications and performance characteristics
+- `results/analysis_report.txt` - Performance analysis report
+- `results/*.png` - Performance plots and roofline analysis
+- `logs/test_benchmark.out` - Latest test run output with verification results
 
 ---
 

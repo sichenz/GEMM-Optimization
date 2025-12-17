@@ -17,8 +17,8 @@
 #include "ops/op_elemwise.cuh"
 
 // Benchmarking framework for measuring GEMM performance
-// This file handles timing, running benchmarks, and validating correctness
-// I'm using CUDA events for timing since they're more accurate than CPU timers
+// Handles timing, running benchmarks, and validating correctness
+// Uses CUDA events for timing since they're more accurate than CPU timers
 
 unsigned long long randgen_seed = 12345;
 
@@ -120,7 +120,7 @@ BenchmarkResult benchmarkLab1GEMM(int M, int N, int K, int warmup_iters, int ben
 }
 
 // Benchmark cuBLAS SGEMM (FP32) - this is our performance target
-// cuBLAS is NVIDIA's optimized library, so this is what we're trying to match
+// cuBLAS is NVIDIA's optimized library, used as a performance baseline
 BenchmarkResult benchmarkCublasSGEMM(int M, int N, int K, int warmup_iters, int bench_iters) {
     cublasHandle_t handle;
     cublasCreate(&handle);

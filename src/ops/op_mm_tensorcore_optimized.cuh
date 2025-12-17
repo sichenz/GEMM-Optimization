@@ -1,7 +1,7 @@
 #pragma once
 
 // Optimized TensorCore GEMM with double buffering
-// Tries to overlap loading next tile with computing current tile
+// Overlaps loading next tile with computing current tile to improve performance
 
 #include "utils/check_error.cuh"
 #include "utils/tensor.cuh"

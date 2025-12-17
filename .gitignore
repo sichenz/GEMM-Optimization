@@ -27,16 +27,18 @@ cmake_install.cmake
 Makefile
 
 # ===============================
-# Slurm logs
-*.out
-*.err
+# Slurm logs (general outputs, but keep test_benchmark.out)
 slurm-*.out
 slurm-*.err
+*.err
+# Note: logs/test_benchmark.out is included for submission
 
 # ===============================
 # Results & logs
-results/
-logs/
+# Note: results/ and logs/ are included in repo for submission
+# Only ignore build artifacts and temporary files
+*.tmp
+*.temp
 
 # ===============================
 # CUTLASS build directories
